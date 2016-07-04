@@ -1,6 +1,6 @@
 {
   "name": "promiseFactory",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Configurable Promise class factory",
   "main": "src/promiseFactory.js",
   "scripts": {
@@ -17,9 +17,9 @@
   "author": "Vladimir Kalmykov <vladimirmorulus@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/polyvitamins/promiseFactory/issues"
+    "url": "https://github.com/morulus/promiseFactory/issues"
   },
-  "homepage": "https://github.com/polyvitamins/promiseFactory#readme",
+  "homepage": "https://github.com/morulus/promiseFactory#readme",
   "devDependencies": {
     "babel-cli": "^6.8.0",
     "babel-core": "^6.9.1",
