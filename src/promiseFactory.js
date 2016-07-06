@@ -165,227 +165,259 @@ export default function promiseFactory({
 
 	var CustomizedPromise;
 
-	var methods = {
-		constructor(resolver) {
-			this[$reinitialization](autorun, resolver);
+	var methods = Object.create(idlePromise.prototype, {
+		constructor: {
+			value: function(resolver) {
+				this[$reinitialization](autorun, resolver);
 
-			Object.defineProperty(this, '$_customizedMethodsNames', {
-				writable: false,
-				enumerable: false,
-				configurable: false,
-				value: $_customizedMethodsNames
-			})
+				Object.defineProperty(this, '$_customizedMethodsNames', {
+					writable: false,
+					enumerable: false,
+					configurable: false,
+					value: $_customizedMethodsNames
+				})
 
-			this[$execute]();
+				this[$execute]();
+			}
 		},
-		[$reinitialization](autorun, resolver) {
-			this[$promise] = {
-				state: $statePending,
-				resolver: resolver || null,
-				fulfillReactions: [],
-				rejectReactions: [],
-				result: null, // Result value
-				stopped: false,
-				destroyHandlers: []
+		[$reinitialization]: {
+			value: function(autorun, resolver) {
+				this[$promise] = {
+					state: $statePending,
+					resolver: resolver || null,
+					fulfillReactions: [],
+					rejectReactions: [],
+					result: null, // Result value
+					stopped: false,
+					destroyHandlers: []
+				}
 			}
 		},
 		/*
 		Execute resolver
 		*/
-		[$execute](resolver) {
+		[$execute]: {
+			value: function(resolver) {
 
-			if ("function"===typeof resolver) this[$promise].resolver = resolver;
+				if ("function"===typeof resolver) this[$promise].resolver = resolver;
 
-			if ("function"===typeof this[$promise].resolver) {
-				
-				try {
-					this[$promise].resolver(this[$resolve].bind(this), this[$reject].bind(this));
-				} catch(e) {
-					this[$reject](e);
+				if ("function"===typeof this[$promise].resolver) {
+					
+					try {
+						this[$promise].resolver(this[$resolve].bind(this), this[$reject].bind(this));
+					} catch(e) {
+						this[$reject](e);
+					}
+				} else if (!external) {
+					throw new Error("Promise requires resolver"); return;
 				}
-			} else if (!external) {
-				throw new Error("Promise requires resolver"); return;
+				
+				return this;
 			}
-			
-			return this;
 		},
-		[$resolve](result) {
-			if (this[$promise].stopped) return null;
-			let jobs = [];
+		[$resolve]: {
+			value: function(result) {
+				if (this[$promise].stopped) return null;
+				let jobs = [];
 
-			if (!perpetual && this[$promise].state !== $statePending) { 
-				throw new Error("Promise can not be resolved second time. To use multiple resolvings compile Promise with option perpetual = true."); return null; 
-			}
+				if (!perpetual && this[$promise].state !== $statePending) { 
+					throw new Error("Promise can not be resolved second time. To use multiple resolvings compile Promise with option perpetual = true."); return null; 
+				}
 
-			this[$promise].state = $stateResolved;
-			this[$promise].result = result;
-			
-			for (let reaction of this[$promise].fulfillReactions) {
-				// Create high-order handler to make sure that result will be actual
-				jobs.push(() => { reaction.call(this, result) });
+				this[$promise].state = $stateResolved;
+				this[$promise].result = result;
+				
+				for (let reaction of this[$promise].fulfillReactions) {
+					// Create high-order handler to make sure that result will be actual
+					jobs.push(() => { reaction.call(this, result) });
+				}
+				if (!perpetual || this[$promise].stopped) this[$promise].fulfillReactions = []; // Clear if not staying alive
+				this[$doJob](jobs);
 			}
-			if (!perpetual || this[$promise].stopped) this[$promise].fulfillReactions = []; // Clear if not staying alive
-			this[$doJob](jobs);
 		},
-		[$reject](e) {
-			if (this[$promise].stopped) return null;
-			let jobs = [];
-			if (!perpetual && this[$promise].state !== $statePending) { throw new Error("Promise can not be rejected second time. To use multiple rejectings compile Promise with option perpetual = true."); return null; }
+		[$reject]: {
+			value: function(e) {
+				if (this[$promise].stopped) return null;
+				let jobs = [];
+				if (!perpetual && this[$promise].state !== $statePending) { throw new Error("Promise can not be rejected second time. To use multiple rejectings compile Promise with option perpetual = true."); return null; }
 
-			this[$promise].state = $stateRejected;
-			this[$promise].result = e;
-			for (let reaction of this[$promise].rejectReactions) {
-				// Create high-order handler to make sure that result will be actual
-				jobs.push(function() { reaction.call(this, e) });
+				this[$promise].state = $stateRejected;
+				this[$promise].result = e;
+				for (let reaction of this[$promise].rejectReactions) {
+					// Create high-order handler to make sure that result will be actual
+					jobs.push(function() { reaction.call(this, e) });
+				}
+				if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
+				
+				this[$doJob](jobs, true);
 			}
-			if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
-			
-			this[$doJob](jobs, true);
 		},
 		/*
 		After resolving (or rejecting) all reactions will be called in the next tick
 		*/
-		[$doJob](jobs, rejection = false) {
-			/*
-			Rejection can not be hidden from developer
-			*/
-			
-			let jobList = () => {
-				for (var i =0;i<jobs.length;++i) {
-					jobs[i].call(this, this[$promise].result);
-					jobs.splice(i, 1);
-					i--;
+		[$doJob]: {
+			value: function(jobs, rejection = false) {
+				/*
+				Rejection can not be hidden from developer
+				*/
+				
+				let jobList = () => {
+					for (var i =0;i<jobs.length;++i) {
+						jobs[i].call(this, this[$promise].result);
+						jobs.splice(i, 1);
+						i--;
+					}
 				}
+				if (immediate) jobList();
+				else setTimeout(jobList, 0);
 			}
-			if (immediate) jobList();
-			else setTimeout(jobList, 0);
 		},
-		[$_customizedMethodsNames.execute](resolver) {
-			if (!(external || autorun)) { throw new Error("Method execute() is not aviable from outside"); return null; }
-			this[$execute](resolver);
-			return this;
+		[$_customizedMethodsNames.execute]: {
+			value: function(resolver) {
+				if (!(external || autorun)) { throw new Error("Method execute() is not aviable from outside"); return null; }
+				this[$execute](resolver);
+				return this;
+			}
 		},
-		[$_customizedMethodsNames.resolve](value) {
-			if (!external) { throw new Error("Method resolve() is not aviable from outside"); return null; }
-			this[$resolve](value);
-			return this;
+		[$_customizedMethodsNames.resolve]: {
+			value: function(value) {
+				if (!external) { throw new Error("Method resolve() is not aviable from outside"); return null; }
+				this[$resolve](value);
+				return this;
+			}
 		},
-		[$_customizedMethodsNames.reject](e) {
-			if (!external) { throw new Error("Method reject() is not aviable from outside"); return null; }
-			this[$reject](e);
-			return this;
+		[$_customizedMethodsNames.reject]: {
+			value: function(e) {
+				if (!external) { throw new Error("Method reject() is not aviable from outside"); return null; }
+				this[$reject](e);
+				return this;
+			}
 		},
-		[$_customizedMethodsNames.reset]() {
-			if (!external) { throw new Error("Method reset() is not aviable from outside"); return null; }
-			this[$promise].state = $statePending;
-			this[$promise].result = null;
-			return this;
+		[$_customizedMethodsNames.reset]: {
+			value: function() {
+				if (!external) { throw new Error("Method reset() is not aviable from outside"); return null; }
+				this[$promise].state = $statePending;
+				this[$promise].result = null;
+				return this;
+			}
 		},
 		/**
 		Erase all reactions and disable perpetual mode if enabled
 		**/
-		[$_customizedMethodsNames.destroy]() {
-			this[$_customizedMethodsNames.stop]();
-			this[$_customizedMethodsNames.reset]();
-			for (let handler of this[$promise].destroyHandlers) {
-				handler();
+		[$_customizedMethodsNames.destroy]: {
+			value: function() {
+				this[$_customizedMethodsNames.stop]();
+				this[$_customizedMethodsNames.reset]();
+				for (let handler of this[$promise].destroyHandlers) {
+					handler();
+				}
+				this[$reinitialization]();
 			}
-			this[$reinitialization]();
 		},
 		/*
 		Allow you to specify custon handler on destroy action
 		*/
-		[$_customizedMethodsNames.onDestroy](customHandler) {
-			this[$promise].destroyHandlers.push(customHandler);
+		[$_customizedMethodsNames.onDestroy]: {
+			value: function(customHandler) {
+				this[$promise].destroyHandlers.push(customHandler);
+			}
 		},
 		/*
 		Stop machine! Disable resolve and reject methods. New values will be not received.
 		*/
-		[$_customizedMethodsNames.stop]() {
-			this[$promise].stopped = true;
-		},
-		[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
-
-			var promise = new CustomizedPromise((resolve, reject) => {
-
-				if ("function"===typeof onResolved) {
-					let subResolver = createSubResolver(onResolved, resolve, reject);
-					if (this[$promise].state === $stateResolved) {
-						this[$doJob]([
-							subResolver
-						]);
-						if (perpetual) this[$promise].fulfillReactions.push(
-							subResolver
-						);
-					} else {
-						this[$promise].fulfillReactions.push(
-							subResolver
-						);
-					}
-				}
-
-				if ("function"===typeof onRejected) {
-					let subRejecter = createSubResolver(onRejected, resolve, reject);
-					if (this[$promise].state === $stateRejected) {
-						this[$doJob]([
-							subRejecter
-						]);
-						if (perpetual) this[$promise].rejectReactions.push(
-							subRejecter
-						);
-					} else {
-						this[$promise].rejectReactions.push(
-							subRejecter
-						);
-					}
-				}
-			});
-
-			if (!autorun) {
-				promise[$execute]();
+		[$_customizedMethodsNames.stop]: {
+			value: function() {
+				this[$promise].stopped = true;
 			}
+		},
+		[$_customizedMethodsNames.then]: {
+			value: function(onResolved = false, onRejected = false) {
 
-			if (chaining)
-			return promise;
-			else
-			return this;
-		},
-		[$_customizedMethodsNames.catch](onRejected) {
-			return this[$_customizedMethodsNames.then](false, onRejected);
-		},
-		transform(newConfiguration) {
-			throw 'Method deprecated!';
-			for (let key in newConfiguration) {
-				if (newConfiguration.hasOwnProperty(key)) {
-					switch(key) {
-						case 'perpetual':
-							perpetual = newConfiguration[key];
-							this.perpetualDisabledBy = new Error('Perpetual disabled'); // TODO: Delete it after debugging
-						break;
-						case 'immediate':
-							immediate = newConfiguration[key];
-						break;
-						case 'autorun':
-							autorun = newConfiguration[key];
-						break;
-						case 'external':
-							external = newConfiguration[key];
-						break;
-						case 'chaining':
-							chaining = newConfiguration[key];
-						break;
-						case 'methodsNames':
-							throw new Error('PromiseFactory is not supports changing methods names after factoring');
-						break;
-						default:
-							throw new Error('Undefined configuration key: '+key);
-						break;
+				var promise = new CustomizedPromise((resolve, reject) => {
+
+					if ("function"===typeof onResolved) {
+						let subResolver = createSubResolver(onResolved, resolve, reject);
+						if (this[$promise].state === $stateResolved) {
+							this[$doJob]([
+								subResolver
+							]);
+							if (perpetual) this[$promise].fulfillReactions.push(
+								subResolver
+							);
+						} else {
+							this[$promise].fulfillReactions.push(
+								subResolver
+							);
+						}
 					}
+
+					if ("function"===typeof onRejected) {
+						let subRejecter = createSubResolver(onRejected, resolve, reject);
+						if (this[$promise].state === $stateRejected) {
+							this[$doJob]([
+								subRejecter
+							]);
+							if (perpetual) this[$promise].rejectReactions.push(
+								subRejecter
+							);
+						} else {
+							this[$promise].rejectReactions.push(
+								subRejecter
+							);
+						}
+					}
+				});
+
+				if (!autorun) {
+					promise[$execute]();
 				}
-				
+
+				if (chaining)
+				return promise;
+				else
+				return this;
+			}
+		},
+		[$_customizedMethodsNames.catch]: {
+			value: function(onRejected) {
+				return this[$_customizedMethodsNames.then](false, onRejected);
+			}
+		},
+		transform: {
+			value: function(newConfiguration) {
+				throw 'Method deprecated!';
+				for (let key in newConfiguration) {
+					if (newConfiguration.hasOwnProperty(key)) {
+						switch(key) {
+							case 'perpetual':
+								perpetual = newConfiguration[key];
+								this.perpetualDisabledBy = new Error('Perpetual disabled'); // TODO: Delete it after debugging
+							break;
+							case 'immediate':
+								immediate = newConfiguration[key];
+							break;
+							case 'autorun':
+								autorun = newConfiguration[key];
+							break;
+							case 'external':
+								external = newConfiguration[key];
+							break;
+							case 'chaining':
+								chaining = newConfiguration[key];
+							break;
+							case 'methodsNames':
+								throw new Error('PromiseFactory is not supports changing methods names after factoring');
+							break;
+							default:
+								throw new Error('Undefined configuration key: '+key);
+							break;
+						}
+					}
+					
+				}
 			}
 		}
-	}
+	});
 
 	var methodAll = function (promises) {
 		var allPromise = new CustomizedPromise(function(resolve, reject) {
@@ -422,87 +454,98 @@ export default function promiseFactory({
 		return allPromise;
 	};
 
-	CustomizedPromise = class CustomizedPromise extends idlePromise {
-
-		static all(promises) {
-			return methodAll.apply(this, Array.from(arguments));
-		}
-
-		constructor(resolver) {
-			super();
+	if (PROMISE_FACTORY_ES5) {
+		CustomizedPromise = function() {
 			return methods.constructor.apply(this, Array.from(arguments));
 		}
 
-		[$reinitialization](autorun, resolver) {
-			return methods[$reinitialization].apply(this, Array.from(arguments));
-		}
+		CustomizedPromise.prototype = Object.create(methods);
 
-		/*
-		Execute resolver
-		*/
-		[$execute](resolver) {
-			return methods[$execute].apply(this, Array.from(arguments));
-		}
+		CustomizedPromise.all = methodAll;
+		
+	} else {
+		CustomizedPromise = class CustomizedPromise extends idlePromise {
 
-		[$resolve](result) {
-			return methods[$resolve].apply(this, Array.from(arguments));
-		}
+			static all(promises) {
+				return methodAll.apply(this, Array.from(arguments));
+			}
 
-		[$reject](e) {
-			return methods[$reject].apply(this, Array.from(arguments));
-		}
+			constructor(resolver) {
+				super();
+				return methods.constructor.apply(this, Array.from(arguments));
+			}
 
-		/*
-		After resolving (or rejecting) all reactions will be called in the next tick
-		*/
-		[$doJob](jobs, rejection = false) {
-			return methods[$doJob].apply(this, Array.from(arguments));
-		}
+			[$reinitialization](autorun, resolver) {
+				return methods[$reinitialization].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.execute](resolver) {
-			return methods[$_customizedMethodsNames.execute].apply(this, Array.from(arguments));
-		}
+			/*
+			Execute resolver
+			*/
+			[$execute](resolver) {
+				return methods[$execute].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.resolve](value) {
-			return methods[$_customizedMethodsNames.resolve].apply(this, Array.from(arguments));
-		}
+			[$resolve](result) {
+				return methods[$resolve].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.reject](e) {
-			return methods[$_customizedMethodsNames.reject].apply(this, Array.from(arguments));
-		}
+			[$reject](e) {
+				return methods[$reject].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.reset]() {
-			return methods[$_customizedMethodsNames.reset].apply(this, Array.from(arguments));
-		}
-		/**
-		Erase all reactions and disable perpetual mode if enabled
-		**/
-		[$_customizedMethodsNames.destroy]() {
-			return methods[$_customizedMethodsNames.destroy].apply(this, Array.from(arguments));
-		}
-		/*
-		Allow you to specify custon handler on destroy action
-		*/
-		[$_customizedMethodsNames.onDestroy](customHandler) {
-			return methods[$_customizedMethodsNames.onDestroy].apply(this, Array.from(arguments));
-		}
-		/*
-		Stop machine! Disable resolve and reject methods. New values will be not received.
-		*/
-		[$_customizedMethodsNames.stop]() {
-			return methods[$_customizedMethodsNames.stop].apply(this, Array.from(arguments));
-		}
+			/*
+			After resolving (or rejecting) all reactions will be called in the next tick
+			*/
+			[$doJob](jobs, rejection = false) {
+				return methods[$doJob].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
-			return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
-		}
+			[$_customizedMethodsNames.execute](resolver) {
+				return methods[$_customizedMethodsNames.execute].apply(this, Array.from(arguments));
+			}
 
-		[$_customizedMethodsNames.catch](onRejected) {
-			return methods[$_customizedMethodsNames.catch].apply(this, Array.from(arguments));
-		}
+			[$_customizedMethodsNames.resolve](value) {
+				return methods[$_customizedMethodsNames.resolve].apply(this, Array.from(arguments));
+			}
 
-		transform(newConfiguration) {
-			return methods.transform(false, onRejected);
+			[$_customizedMethodsNames.reject](e) {
+				return methods[$_customizedMethodsNames.reject].apply(this, Array.from(arguments));
+			}
+
+			[$_customizedMethodsNames.reset]() {
+				return methods[$_customizedMethodsNames.reset].apply(this, Array.from(arguments));
+			}
+			/**
+			Erase all reactions and disable perpetual mode if enabled
+			**/
+			[$_customizedMethodsNames.destroy]() {
+				return methods[$_customizedMethodsNames.destroy].apply(this, Array.from(arguments));
+			}
+			/*
+			Allow you to specify custon handler on destroy action
+			*/
+			[$_customizedMethodsNames.onDestroy](customHandler) {
+				return methods[$_customizedMethodsNames.onDestroy].apply(this, Array.from(arguments));
+			}
+			/*
+			Stop machine! Disable resolve and reject methods. New values will be not received.
+			*/
+			[$_customizedMethodsNames.stop]() {
+				return methods[$_customizedMethodsNames.stop].apply(this, Array.from(arguments));
+			}
+
+			[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
+				return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
+			}
+
+			[$_customizedMethodsNames.catch](onRejected) {
+				return methods[$_customizedMethodsNames.catch].apply(this, Array.from(arguments));
+			}
+
+			transform(newConfiguration) {
+				return methods.transform(false, onRejected);
+			}
 		}
 	}
 

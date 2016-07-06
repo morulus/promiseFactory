@@ -1,3 +1,4 @@
+var webpack = require('webpack');
 module.exports = {
     context: __dirname + "/",
     entry: "./src/promiseFactory.js",
@@ -7,7 +8,11 @@ module.exports = {
         libraryTarget: 'commonjs2',
         library: 'promiseFactory'
     },
-
+    plugins: [
+        new webpack.DefinePlugin({
+            'PROMISE_FACTORY_ES5': "true"
+        })
+    ],
     module: {
     	loaders: [
 	    	{

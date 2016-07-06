@@ -1,10 +1,11 @@
 {
   "name": "promiseFactory",
-  "version": "0.0.3",
+  "version": "0.1",
   "description": "Configurable Promise class factory",
   "main": "src/promiseFactory.js",
   "scripts": {
     "test": "tap test-es5.js",
+    "test-chaining": "tap test-es5.js",
     "build-es5": "webpack --config webpack.config.js"
   },
   "repository": {
