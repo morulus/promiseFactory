@@ -128,7 +128,7 @@ function createSubResolver(handler, resolve, reject) {
 	return function subResolver(result) {
 		try {
 			var thenResult = handler(result);
-			if ("object"===typeof thenResult && (thenResult instanceof Promise || thenResult instanceof CustomizedPromise)) {
+			if ("object"===typeof thenResult && (thenResult instanceof Promise || thenResult instanceof idlePromise)) {
 				thenResult[!(thenResult instanceof idlePromise) ? 'then' : thenResult.$_customizedMethodsNames.then](function(result) {
 					resolve(result);
 				});
@@ -163,47 +163,10 @@ export default function promiseFactory({
 		}
 	}
 
+	var CustomizedPromise;
 
-
-	return class CustomizedPromise extends idlePromise {
-
-		static all(promises) {
-			var allPromise = new CustomizedPromise(function(resolve, reject) {
-				var results = Array(promises.length),
-				resolved = Array(promises.length).fill(false),
-				timer = 0;
-				var validate = function() {
-					if (resolved.filter((v) => !v).length===0) {
-						resolve(results);
-					}
-				}
-				promises.forEach(function(promise, index) {
-					promise.then(function(result) {
-						results[index] = result;
-						resolved[index] = true;
-
-						if (immediate) {
-							validate();
-						} else {
-							clearTimeout(timer);
-							timer = setTimeout(validate);
-						}
-						
-					})
-					.catch(function(e) {
-						clearTimeout(timer);
-						reject(e);
-					});
-				});
-			});
-			
-			if (!autorun) allPromise[$execute]();
-
-			return allPromise;
-		}
-
+	var methods = {
 		constructor(resolver) {
-			super();
 			this[$reinitialization](autorun, resolver);
 
 			Object.defineProperty(this, '$_customizedMethodsNames', {
@@ -214,8 +177,7 @@ export default function promiseFactory({
 			})
 
 			this[$execute]();
-		}
-
+		},
 		[$reinitialization](autorun, resolver) {
 			this[$promise] = {
 				state: $statePending,
@@ -226,8 +188,7 @@ export default function promiseFactory({
 				stopped: false,
 				destroyHandlers: []
 			}
-		}
-
+		},
 		/*
 		Execute resolver
 		*/
@@ -247,8 +208,7 @@ export default function promiseFactory({
 			}
 			
 			return this;
-		}
-
+		},
 		[$resolve](result) {
 			if (this[$promise].stopped) return null;
 			let jobs = [];
@@ -266,8 +226,7 @@ export default function promiseFactory({
 			}
 			if (!perpetual || this[$promise].stopped) this[$promise].fulfillReactions = []; // Clear if not staying alive
 			this[$doJob](jobs);
-		}
-
+		},
 		[$reject](e) {
 			if (this[$promise].stopped) return null;
 			let jobs = [];
@@ -282,8 +241,7 @@ export default function promiseFactory({
 			if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
 			
 			this[$doJob](jobs, true);
-		}
-
+		},
 		/*
 		After resolving (or rejecting) all reactions will be called in the next tick
 		*/
@@ -301,33 +259,28 @@ export default function promiseFactory({
 			}
 			if (immediate) jobList();
 			else setTimeout(jobList, 0);
-		}
-
+		},
 		[$_customizedMethodsNames.execute](resolver) {
 			if (!(external || autorun)) { throw new Error("Method execute() is not aviable from outside"); return null; }
 			this[$execute](resolver);
 			return this;
-		}
-
+		},
 		[$_customizedMethodsNames.resolve](value) {
 			if (!external) { throw new Error("Method resolve() is not aviable from outside"); return null; }
 			this[$resolve](value);
 			return this;
-		}
-
+		},
 		[$_customizedMethodsNames.reject](e) {
 			if (!external) { throw new Error("Method reject() is not aviable from outside"); return null; }
 			this[$reject](e);
 			return this;
-		}
-
+		},
 		[$_customizedMethodsNames.reset]() {
 			if (!external) { throw new Error("Method reset() is not aviable from outside"); return null; }
 			this[$promise].state = $statePending;
 			this[$promise].result = null;
 			return this;
-		}
-
+		},
 		/**
 		Erase all reactions and disable perpetual mode if enabled
 		**/
@@ -338,21 +291,19 @@ export default function promiseFactory({
 				handler();
 			}
 			this[$reinitialization]();
-		}
-
+		},
 		/*
 		Allow you to specify custon handler on destroy action
 		*/
 		[$_customizedMethodsNames.onDestroy](customHandler) {
 			this[$promise].destroyHandlers.push(customHandler);
-		}
+		},
 		/*
 		Stop machine! Disable resolve and reject methods. New values will be not received.
 		*/
 		[$_customizedMethodsNames.stop]() {
 			this[$promise].stopped = true;
-		}
-
+		},
 		[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
 
 			var promise = new CustomizedPromise((resolve, reject) => {
@@ -398,12 +349,10 @@ export default function promiseFactory({
 			return promise;
 			else
 			return this;
-		}
-
+		},
 		[$_customizedMethodsNames.catch](onRejected) {
 			return this[$_customizedMethodsNames.then](false, onRejected);
-		}
-
+		},
 		transform(newConfiguration) {
 			throw 'Method deprecated!';
 			for (let key in newConfiguration) {
@@ -437,4 +386,125 @@ export default function promiseFactory({
 			}
 		}
 	}
+
+	var methodAll = function (promises) {
+		var allPromise = new CustomizedPromise(function(resolve, reject) {
+			var results = Array(promises.length),
+			resolved = Array(promises.length).fill(false),
+			timer = 0;
+			var validate = function() {
+				if (resolved.filter((v) => !v).length===0) {
+					resolve(results);
+				}
+			}
+			promises.forEach(function(promise, index) {
+				promise.then(function(result) {
+					results[index] = result;
+					resolved[index] = true;
+
+					if (immediate) {
+						validate();
+					} else {
+						clearTimeout(timer);
+						timer = setTimeout(validate);
+					}
+					
+				})
+				.catch(function(e) {
+					clearTimeout(timer);
+					reject(e);
+				});
+			});
+		});
+		
+		if (!autorun) allPromise[$execute]();
+
+		return allPromise;
+	};
+
+	CustomizedPromise = class CustomizedPromise extends idlePromise {
+
+		static all(promises) {
+			return methodAll.apply(this, Array.from(arguments));
+		}
+
+		constructor(resolver) {
+			super();
+			return methods.constructor.apply(this, Array.from(arguments));
+		}
+
+		[$reinitialization](autorun, resolver) {
+			return methods[$reinitialization].apply(this, Array.from(arguments));
+		}
+
+		/*
+		Execute resolver
+		*/
+		[$execute](resolver) {
+			return methods[$execute].apply(this, Array.from(arguments));
+		}
+
+		[$resolve](result) {
+			return methods[$resolve].apply(this, Array.from(arguments));
+		}
+
+		[$reject](e) {
+			return methods[$reject].apply(this, Array.from(arguments));
+		}
+
+		/*
+		After resolving (or rejecting) all reactions will be called in the next tick
+		*/
+		[$doJob](jobs, rejection = false) {
+			return methods[$doJob].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.execute](resolver) {
+			return methods[$_customizedMethodsNames.execute].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.resolve](value) {
+			return methods[$_customizedMethodsNames.resolve].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.reject](e) {
+			return methods[$_customizedMethodsNames.reject].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.reset]() {
+			return methods[$_customizedMethodsNames.reset].apply(this, Array.from(arguments));
+		}
+		/**
+		Erase all reactions and disable perpetual mode if enabled
+		**/
+		[$_customizedMethodsNames.destroy]() {
+			return methods[$_customizedMethodsNames.destroy].apply(this, Array.from(arguments));
+		}
+		/*
+		Allow you to specify custon handler on destroy action
+		*/
+		[$_customizedMethodsNames.onDestroy](customHandler) {
+			return methods[$_customizedMethodsNames.onDestroy].apply(this, Array.from(arguments));
+		}
+		/*
+		Stop machine! Disable resolve and reject methods. New values will be not received.
+		*/
+		[$_customizedMethodsNames.stop]() {
+			return methods[$_customizedMethodsNames.stop].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
+			return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
+		}
+
+		[$_customizedMethodsNames.catch](onRejected) {
+			return methods[$_customizedMethodsNames.catch].apply(this, Array.from(arguments));
+		}
+
+		transform(newConfiguration) {
+			return methods.transform(false, onRejected);
+		}
+	}
+
+	return CustomizedPromise;
 }
