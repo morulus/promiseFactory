@@ -177,7 +177,7 @@ export default function promiseFactory({
 					value: $_customizedMethodsNames
 				})
 
-				this[$execute]();
+				if (autorun) this[$execute]();
 			}
 		},
 		[$reinitialization]: {

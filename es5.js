@@ -248,7 +248,7 @@ module.exports =
 						value: $_customizedMethodsNames
 					});
 
-					this[$execute]();
+					if (autorun) this[$execute]();
 				}
 			}
 		}, _defineProperty(_Object$create, $reinitialization, {
