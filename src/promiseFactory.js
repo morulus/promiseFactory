@@ -100,6 +100,7 @@ var $promise = Symbol,
 $execute = Symbol('execute'),
 $resolve = Symbol('resolve'),
 $reject = Symbol('reject'),
+$reset = Symbol('reset'),
 $doJob = Symbol(),
 $statePending = Symbol('pending'),
 $stateResolved = Symbol('resolved'),
@@ -252,6 +253,13 @@ export default function promiseFactory({
 				this[$doJob](jobs, true);
 			}
 		},
+		[$reset]: {
+			value: function() {
+				this[$promise].state = $statePending;
+				this[$promise].result = null;
+				return this;
+			}
+		},
 		/*
 		After resolving (or rejecting) all reactions will be called in the next tick
 		*/
@@ -296,9 +304,7 @@ export default function promiseFactory({
 		[$_customizedMethodsNames.reset]: {
 			value: function() {
 				if (!external) { throw new Error("Method reset() is not aviable from outside"); return null; }
-				this[$promise].state = $statePending;
-				this[$promise].result = null;
-				return this;
+				this[$reset]();
 			}
 		},
 		/**
@@ -307,7 +313,7 @@ export default function promiseFactory({
 		[$_customizedMethodsNames.destroy]: {
 			value: function() {
 				this[$_customizedMethodsNames.stop]();
-				this[$_customizedMethodsNames.reset]();
+				this[$reset]();
 				for (let handler of this[$promise].destroyHandlers) {
 					handler();
 				}
@@ -454,6 +460,56 @@ export default function promiseFactory({
 		return allPromise;
 	};
 
+	class SupremeSubject {
+		constructor() {
+			this.backtracks = [];
+			this.actual = true;
+		}
+
+		backtrack(destroyer) {
+			if ("function"===typeof destroyer) this.backtracks.push(destroyer);
+		}
+
+		async(handler, late) {
+			var supreme = this;
+			return function(...args) {
+				if (supreme.actual)
+				return handler(...args);
+				else
+				return "function"===typeof late ? late(...args) : null;
+			}
+		}
+
+		destroy() {
+			this.actual = false;
+			this.backtracks.forEach(function(destroyer) {
+				destroyer();
+			});
+			this.promise.destroy();
+		}
+	}
+
+	var methodSupreme = function(resolver) {
+		var supremeSubject = null;
+		var decoratedResolver = function(...args) {
+			if (null!==supremeSubject) {
+				supremeSubject.destroy();
+			}
+			supremeSubject = new SupremeSubject();
+			supremeSubject.promise = new CustomizedPromise(function(resolve, reject) {
+				
+				var returnedDestroyer = resolver.call(this, resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject));
+				if ("function"===typeof returnedDestroyer) supremeSubject.backtrack(returnedDestroyer);
+			});
+
+			if (!autorun) supremeSubject.promise[$execute]();
+
+			return supremeSubject.promise;
+		}
+
+		return decoratedResolver;
+	}
+
 	if (PROMISE_FACTORY_ES5) {
 		CustomizedPromise = function() {
 			return methods.constructor.apply(this, Array.from(arguments));
@@ -462,6 +518,7 @@ export default function promiseFactory({
 		CustomizedPromise.prototype = Object.create(methods);
 
 		CustomizedPromise.all = methodAll;
+		CustomizedPromise.supreme = methodSupreme;
 		
 	} else {
 		CustomizedPromise = class CustomizedPromise extends idlePromise {
@@ -492,6 +549,10 @@ export default function promiseFactory({
 
 			[$reject](e) {
 				return methods[$reject].apply(this, Array.from(arguments));
+			}
+
+			[$reset]() {
+				return methods[$reset].apply(this, Array.from(arguments));
 			}
 
 			/*
