@@ -620,13 +620,17 @@ module.exports =
 		var methodSupreme = function methodSupreme(resolver) {
 			var supremeSubject = null;
 			var decoratedResolver = function decoratedResolver() {
+				for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+					args[_key] = arguments[_key];
+				}
+
 				if (null !== supremeSubject) {
 					supremeSubject.destroy();
 				}
 				supremeSubject = new SupremeSubject();
 				supremeSubject.promise = new CustomizedPromise(function (resolve, reject) {
 
-					var returnedDestroyer = resolver.call(this, resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject));
+					var returnedDestroyer = resolver.apply(this, [resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject)].concat(args));
 					if ("function" === typeof returnedDestroyer) supremeSubject.backtrack(returnedDestroyer);
 				});
 

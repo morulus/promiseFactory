@@ -1,6 +1,6 @@
 {
   "name": "promiseFactory",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Configurable Promise class factory",
   "main": "src/promiseFactory.js",
   "scripts": {

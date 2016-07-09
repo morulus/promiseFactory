@@ -498,7 +498,10 @@ export default function promiseFactory({
 			supremeSubject = new SupremeSubject();
 			supremeSubject.promise = new CustomizedPromise(function(resolve, reject) {
 				
-				var returnedDestroyer = resolver.call(this, resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject));
+				var returnedDestroyer = resolver.apply(this, 
+					[resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject)]
+					.concat(args)
+				);
 				if ("function"===typeof returnedDestroyer) supremeSubject.backtrack(returnedDestroyer);
 			});
 
