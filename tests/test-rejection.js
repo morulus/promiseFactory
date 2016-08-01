@@ -1,6 +1,6 @@
 'use strict';
 var tap = require('tap');
-var promiseFactory = require('./es5.js');
+var promiseFactory = require('./../es5.js');
 
 tap.test('Classc chaining', function(t) {
     t.plan(3);
@@ -18,17 +18,22 @@ tap.test('Classc chaining', function(t) {
 
     tester.then(function(result) {
             t.ok(result===2, 'Second result must equals 2');
-            var p = new Promise(function(resolve, reject) {
-                resolve(3);
-            });
-            return p;
+            throw new Error('Oups');
         })
         .then(function(result) {
-            t.ok(result===3, 'Third result must equals 3');
+           // t.ok(result===3, 'Third result must equals 3');
             return new ClasicPromise(function(resolve, reject) {
                 resolve(4);
             });
+        })
+        .catch(function(e) {
+            console.log('Git rejection', e);
         });
+
+        setTimeout(function() {
+            t.ok(2);
+        });
+        
         /*.then(function(result) {
             t.ok(result===4, 'Fourth result must equals 4');
             throw new Error('done');

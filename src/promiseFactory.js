@@ -127,7 +127,7 @@ class idlePromise {
 }
 
 function createSubResolver(handler, resolve, reject) {
-	return function subResolver(result) {
+	var subRes = function subResolver(result) {
 		try {
 			var thenResult = handler(result);
 			if ("object"===typeof thenResult && (thenResult instanceof Promise || thenResult instanceof idlePromise)) {
@@ -145,6 +145,8 @@ function createSubResolver(handler, resolve, reject) {
 			reject(e);
 		}
 	};
+	subRes.reject = reject;
+	return subRes;
 };
 
 
@@ -257,11 +259,15 @@ export default function promiseFactory({
 					this[$doJob](jobs, true);
 				} else {
 					// Make sure that exception will be handling
-					setTimeout(function() {
+					if (this[$promise].fulfillReactions.length===0) setTimeout(function() {
 						if (!this[$promise].rejectionHandled) {
 							console["function"===typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
 						}
-					});
+					}.bind(this));
+				}
+				// Reject all middleware Promises from then
+				for (let reaction of this[$promise].fulfillReactions) {
+					reaction.reject(e);
 				}
 			}
 		},

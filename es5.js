@@ -180,6 +180,7 @@ module.exports =
 		reset: 'reset',
 		then: 'then',
 		"catch": 'catch',
+		always: 'always',
 		all: 'all',
 		destroy: 'destroy',
 		onDestroy: 'onDestroy',
@@ -191,7 +192,7 @@ module.exports =
 	};
 
 	function createSubResolver(handler, resolve, reject) {
-		return function subResolver(result) {
+		var subRes = function subResolver(result) {
 			try {
 				var thenResult = handler(result);
 				if ("object" === (typeof thenResult === "undefined" ? "undefined" : _typeof(thenResult)) && (thenResult instanceof Promise || thenResult instanceof idlePromise)) {
@@ -209,6 +210,8 @@ module.exports =
 				reject(e);
 			}
 		};
+		subRes.reject = reject;
+		return subRes;
 	};
 
 	function promiseFactory(_ref) {
@@ -261,7 +264,8 @@ module.exports =
 					rejectReactions: [],
 					result: null, // Result value
 					stopped: false,
-					destroyHandlers: []
+					destroyHandlers: [],
+					rejectionHandled: false
 				};
 			}
 		}), _defineProperty(_Object$create, $execute, {
@@ -333,6 +337,7 @@ module.exports =
 			}
 		}), _defineProperty(_Object$create, $reject, {
 			value: function value(e) {
+				this[$promise].rejectionHandled = false;
 				if (this[$promise].stopped) return null;
 				var jobs = [];
 				if (!perpetual && this[$promise].state !== $statePending) {
@@ -375,7 +380,41 @@ module.exports =
 
 				if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
 
-				this[$doJob](jobs, true);
+				if (jobs.length > 0) {
+					this[$doJob](jobs, true);
+				} else {
+					// Make sure that exception will be handling
+					if (this[$promise].fulfillReactions.length === 0) setTimeout(function () {
+						if (!this[$promise].rejectionHandled) {
+							console["function" === typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
+						}
+					}.bind(this));
+				}
+				// Reject all middleware Promises from then
+				var _iteratorNormalCompletion3 = true;
+				var _didIteratorError3 = false;
+				var _iteratorError3 = undefined;
+
+				try {
+					for (var _iterator3 = this[$promise].fulfillReactions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+						var _reaction = _step3.value;
+
+						_reaction.reject(e);
+					}
+				} catch (err) {
+					_didIteratorError3 = true;
+					_iteratorError3 = err;
+				} finally {
+					try {
+						if (!_iteratorNormalCompletion3 && _iterator3.return) {
+							_iterator3.return();
+						}
+					} finally {
+						if (_didIteratorError3) {
+							throw _iteratorError3;
+						}
+					}
+				}
 			}
 		}), _defineProperty(_Object$create, $reset, {
 			value: function value() {
@@ -437,27 +476,27 @@ module.exports =
 			value: function value() {
 				this[$_customizedMethodsNames.stop]();
 				this[$reset]();
-				var _iteratorNormalCompletion3 = true;
-				var _didIteratorError3 = false;
-				var _iteratorError3 = undefined;
+				var _iteratorNormalCompletion4 = true;
+				var _didIteratorError4 = false;
+				var _iteratorError4 = undefined;
 
 				try {
-					for (var _iterator3 = this[$promise].destroyHandlers[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-						var handler = _step3.value;
+					for (var _iterator4 = this[$promise].destroyHandlers[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+						var handler = _step4.value;
 
 						handler();
 					}
 				} catch (err) {
-					_didIteratorError3 = true;
-					_iteratorError3 = err;
+					_didIteratorError4 = true;
+					_iteratorError4 = err;
 				} finally {
 					try {
-						if (!_iteratorNormalCompletion3 && _iterator3.return) {
-							_iterator3.return();
+						if (!_iteratorNormalCompletion4 && _iterator4.return) {
+							_iterator4.return();
 						}
 					} finally {
-						if (_didIteratorError3) {
-							throw _iteratorError3;
+						if (_didIteratorError4) {
+							throw _iteratorError4;
 						}
 					}
 				}
@@ -495,6 +534,11 @@ module.exports =
 					if ("function" === typeof onRejected) {
 						var subRejecter = createSubResolver(onRejected, resolve, reject);
 						if (_this3[$promise].state === $stateRejected) {
+							/*
+	      If rejection has not handled by existing rejectReactions
+	      then it must inform to Promise that it did it now.
+	      */
+							_this3[$promise].rejectionHandled = true;
 							_this3[$doJob]([subRejecter]);
 							if (perpetual) _this3[$promise].rejectReactions.push(subRejecter);
 						} else {
@@ -512,6 +556,10 @@ module.exports =
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.catch, {
 			value: function value(onRejected) {
 				return this[$_customizedMethodsNames.then](false, onRejected);
+			}
+		}), _defineProperty(_Object$create, $_customizedMethodsNames.always, {
+			value: function value(onAlways) {
+				return this[$_customizedMethodsNames.then](onAlways, onAlways);
 			}
 		}), _defineProperty(_Object$create, "transform", {
 			value: function value(newConfiguration) {
@@ -768,6 +816,11 @@ module.exports =
 						var onRejected = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
 						return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
+					}
+				}, {
+					key: $_customizedMethodsNames.always,
+					value: function value() {
+						return methods[$_customizedMethodsNames.always].apply(this, Array.from(arguments));
 					}
 				}, {
 					key: $_customizedMethodsNames.catch,

@@ -4,9 +4,10 @@
   "description": "Configurable Promise class factory",
   "main": "src/promiseFactory.js",
   "scripts": {
-    "test": "tap test-es5.js",
-    "test-chaining": "tap test-es5.js",
-    "test-supreme": "tap test-supreme.js",
+    "test": "tap tests/test-es5.js",
+    "test-chaining": "tap tests/test-chaining.js",
+    "test-supreme": "tap tests/test-supreme.js",
+    "test-rejection": "tap tests/test-rejection.js",
     "build-es5": "webpack --config webpack.config.js"
   },
   "repository": {

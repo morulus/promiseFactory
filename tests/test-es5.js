@@ -1,6 +1,6 @@
 'use strict';
 var tap = require('tap');
-var promiseFactory = require('./es5.js');
+var promiseFactory = require('./../es5.js');
 
 tap.test('Validate variables', function(t) {
 	t.ok("function"===typeof promiseFactory, "promiseFactory must be a function");

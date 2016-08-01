@@ -1,6 +1,6 @@
 'use strict';
 var tap = require('tap');
-var promiseFactory = require('./es5.js');
+var promiseFactory = require('./../es5.js');
 
 tap.test('Classc chaining', function(t) {
     t.plan(4);
