@@ -113,6 +113,7 @@ $defaultMethodsNames = {
 	reset: 'reset',
 	then: 'then',
 	"catch": 'catch',
+	always: 'always',
 	all: 'all',
 	destroy: 'destroy',
 	onDestroy: 'onDestroy',
@@ -190,7 +191,8 @@ export default function promiseFactory({
 					rejectReactions: [],
 					result: null, // Result value
 					stopped: false,
-					destroyHandlers: []
+					destroyHandlers: [],
+					rejectionHandled: false
 				}
 			}
 		},
@@ -238,6 +240,7 @@ export default function promiseFactory({
 		},
 		[$reject]: {
 			value: function(e) {
+				this[$promise].rejectionHandled = false;
 				if (this[$promise].stopped) return null;
 				let jobs = [];
 				if (!perpetual && this[$promise].state !== $statePending) { throw new Error("Promise can not be rejected second time. To use multiple rejectings compile Promise with option perpetual = true."); return null; }
@@ -250,7 +253,16 @@ export default function promiseFactory({
 				}
 				if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
 				
-				this[$doJob](jobs, true);
+				if (jobs.length>0) {
+					this[$doJob](jobs, true);
+				} else {
+					// Make sure that exception will be handling
+					setTimeout(function() {
+						if (!this[$promise].rejectionHandled) {
+							console["function"===typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
+						}
+					});
+				}
 			}
 		},
 		[$reset]: {
@@ -360,6 +372,11 @@ export default function promiseFactory({
 					if ("function"===typeof onRejected) {
 						let subRejecter = createSubResolver(onRejected, resolve, reject);
 						if (this[$promise].state === $stateRejected) {
+							/*
+							If rejection has not handled by existing rejectReactions
+							then it must inform to Promise that it did it now.
+							*/
+							this[$promise].rejectionHandled=true;
 							this[$doJob]([
 								subRejecter
 							]);
@@ -387,6 +404,11 @@ export default function promiseFactory({
 		[$_customizedMethodsNames.catch]: {
 			value: function(onRejected) {
 				return this[$_customizedMethodsNames.then](false, onRejected);
+			}
+		},
+		[$_customizedMethodsNames.always]: {
+			value: function(onAlways) {
+				return this[$_customizedMethodsNames.then](onAlways, onAlways);
 			}
 		},
 		transform: {
@@ -601,6 +623,10 @@ export default function promiseFactory({
 
 			[$_customizedMethodsNames.then](onResolved = false, onRejected = false) {
 				return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
+			}
+
+			[$_customizedMethodsNames.always]() {
+				return methods[$_customizedMethodsNames.always].apply(this, Array.from(arguments));
 			}
 
 			[$_customizedMethodsNames.catch](onRejected) {
