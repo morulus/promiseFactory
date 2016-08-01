@@ -259,16 +259,20 @@ export default function promiseFactory({
 					this[$doJob](jobs, true);
 				} else {
 					// Make sure that exception will be handling
-					if (this[$promise].fulfillReactions.length===0) setTimeout(function() {
-						if (!this[$promise].rejectionHandled) {
-							console["function"===typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
+					if (this[$promise].fulfillReactions.length===0) {
+						setTimeout(function() {
+							if (!this[$promise].rejectionHandled) {
+								console["function"===typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
+							}
+						}.bind(this));
+					} else {
+						// Reject all middleware Promises from then
+						for (let reaction of this[$promise].fulfillReactions) {
+							reaction.reject(e);
 						}
-					}.bind(this));
+					}
 				}
-				// Reject all middleware Promises from then
-				for (let reaction of this[$promise].fulfillReactions) {
-					reaction.reject(e);
-				}
+				
 			}
 		},
 		[$reset]: {

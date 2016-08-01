@@ -384,34 +384,37 @@ module.exports =
 					this[$doJob](jobs, true);
 				} else {
 					// Make sure that exception will be handling
-					if (this[$promise].fulfillReactions.length === 0) setTimeout(function () {
-						if (!this[$promise].rejectionHandled) {
-							console["function" === typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
-						}
-					}.bind(this));
-				}
-				// Reject all middleware Promises from then
-				var _iteratorNormalCompletion3 = true;
-				var _didIteratorError3 = false;
-				var _iteratorError3 = undefined;
+					if (this[$promise].fulfillReactions.length === 0) {
+						setTimeout(function () {
+							if (!this[$promise].rejectionHandled) {
+								console["function" === typeof console.error ? 'error' : 'log']("Unhandled Promise rejection", e);
+							}
+						}.bind(this));
+					} else {
+						// Reject all middleware Promises from then
+						var _iteratorNormalCompletion3 = true;
+						var _didIteratorError3 = false;
+						var _iteratorError3 = undefined;
 
-				try {
-					for (var _iterator3 = this[$promise].fulfillReactions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-						var _reaction = _step3.value;
+						try {
+							for (var _iterator3 = this[$promise].fulfillReactions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+								var _reaction = _step3.value;
 
-						_reaction.reject(e);
-					}
-				} catch (err) {
-					_didIteratorError3 = true;
-					_iteratorError3 = err;
-				} finally {
-					try {
-						if (!_iteratorNormalCompletion3 && _iterator3.return) {
-							_iterator3.return();
-						}
-					} finally {
-						if (_didIteratorError3) {
-							throw _iteratorError3;
+								_reaction.reject(e);
+							}
+						} catch (err) {
+							_didIteratorError3 = true;
+							_iteratorError3 = err;
+						} finally {
+							try {
+								if (!_iteratorNormalCompletion3 && _iterator3.return) {
+									_iterator3.return();
+								}
+							} finally {
+								if (_didIteratorError3) {
+									throw _iteratorError3;
+								}
+							}
 						}
 					}
 				}

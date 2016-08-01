@@ -3,7 +3,7 @@ var tap = require('tap');
 var promiseFactory = require('./../es5.js');
 
 tap.test('Classc chaining', function(t) {
-    t.plan(3);
+    t.plan(4);
     var ClasicPromise = promiseFactory({
     });
 
@@ -28,12 +28,17 @@ tap.test('Classc chaining', function(t) {
         })
         .catch(function(e) {
             console.log('Git rejection', e);
+            return 123;
+        })
+        .then(function(content) {
+            console.log('Haha', content);
+            t.ok();
         });
 
         setTimeout(function() {
             t.ok(2);
         });
-        
+
         /*.then(function(result) {
             t.ok(result===4, 'Fourth result must equals 4');
             throw new Error('done');
