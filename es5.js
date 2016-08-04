@@ -693,7 +693,7 @@ module.exports =
 			return decoratedResolver;
 		};
 
-		if (true) {
+		if (false) {
 			CustomizedPromise = function CustomizedPromise() {
 				return methods.constructor.apply(this, Array.from(arguments));
 			};

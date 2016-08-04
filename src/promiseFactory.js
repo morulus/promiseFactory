@@ -545,7 +545,7 @@ export default function promiseFactory({
 		return decoratedResolver;
 	}
 
-	if (PROMISE_FACTORY_ES5) {
+	if ("PROMISE_FACTORY_ES6"!=="PROMISE_FACTORY_ES6") {
 		CustomizedPromise = function() {
 			return methods.constructor.apply(this, Array.from(arguments));
 		}

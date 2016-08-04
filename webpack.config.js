@@ -10,7 +10,7 @@ module.exports = {
     },
     plugins: [
         new webpack.DefinePlugin({
-            'PROMISE_FACTORY_ES5': "true"
+            '"PROMISE_FACTORY_ES6"': "false"
         })
     ],
     module: {
