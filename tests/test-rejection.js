@@ -10,10 +10,10 @@ tap.test('Classc chaining', function(t) {
     var tester = new ClasicPromise(function(resolve, reject) {
         resolve(1);
     })
-        .then(function(result) {
-            t.ok(result===1, 'First result must equals 1');
-            return 2;
-        });
+    .then(function(result) {
+        t.ok(result===1, 'First result must equals 1');
+        return 2;
+    });
 
 
     tester.then(function(result) {

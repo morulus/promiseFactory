@@ -45,7 +45,7 @@ deferedResult.then(function(result) {
 	// Handler will not called yet
 });
 
-deferedResult.execute(); // Force execute resolver
+deferedResult.execute(); // Force execute resolve$rejectr
 
 External api example:
 var deferedResult = new MyPromise();
@@ -94,7 +94,7 @@ var engine = new MyEngine();
 MyEngine.calculate();
 MyEngine.then(function() { });
 **/
-if ("object"===typeof window && "function"!==typeof window.Symbol) window.Symbol = require('es6-symbol');
+//if ("object"===typeof window && "function"!==typeof window.Symbol) window.Symbol = require('es6-symbol');
 
 var $promise = Symbol,
 $execute = Symbol('execute'),
@@ -106,6 +106,9 @@ $statePending = Symbol('pending'),
 $stateResolved = Symbol('resolved'),
 $stateRejected = Symbol('rejected'),
 $reinitialization = Symbol('reinitialization'),
+$promiseEnabled = Symbol('promiseEnabled'),
+$activity = Symbol(),
+$outOfUse = Symbol(),
 $defaultMethodsNames = {
 	execute: 'execute',
 	resolve: 'resolve',
@@ -126,7 +129,9 @@ class idlePromise {
 	}
 }
 
-function createSubResolver(handler, resolve, reject) {
+var createDestroyerFor = new Function('p', 'return "function"===typeof p.destroy ? function() { p.destroy(); } : new Function()');
+
+function createSubResolver(handler, resolve, reject, destroy) {
 	var subRes = function subResolver(result) {
 		try {
 			var thenResult = handler(result);
@@ -146,6 +151,7 @@ function createSubResolver(handler, resolve, reject) {
 		}
 	};
 	subRes.reject = reject;
+	subRes.destroy = destroy;
 	return subRes;
 };
 
@@ -157,6 +163,7 @@ export default function promiseFactory({
 		autorun = true, 
 		external = false, 
 		chaining = true, 
+		searchOutOfUse = false,
 		methodsNames = {}
 	}) {
 
@@ -180,19 +187,31 @@ export default function promiseFactory({
 					configurable: false,
 					value: $_customizedMethodsNames
 				})
-
+				if (searchOutOfUse) {
+					var e = new Error();
+					this[$outOfUse] = {
+						callback: new Function('console.warn("Unused Promise found", "' + e.stack.replace(/[\n\r]/g, " ") + '")')
+					}
+					this[$activity]();
+				}
 				if (autorun) this[$execute]();
+			}
+		},
+		[$activity]: {
+			value: function() {
+				clearTimeout(this[$outOfUse].timer);
+				this[$outOfUse].timer = setTimeout(this[$outOfUse].callback, 10000);
 			}
 		},
 		[$reinitialization]: {
 			value: function(autorun, resolver) {
+				this[$promiseEnabled] = true;
 				this[$promise] = {
 					state: $statePending,
 					resolver: resolver || null,
 					fulfillReactions: [],
 					rejectReactions: [],
 					result: null, // Result value
-					stopped: false,
 					destroyHandlers: [],
 					rejectionHandled: false
 				}
@@ -222,7 +241,8 @@ export default function promiseFactory({
 		},
 		[$resolve]: {
 			value: function(result) {
-				if (this[$promise].stopped) return null;
+				if (!this[$promiseEnabled]) return null;
+				if (searchOutOfUse) this[$activity]();
 				let jobs = [];
 
 				if (!perpetual && this[$promise].state !== $statePending) { 
@@ -236,14 +256,15 @@ export default function promiseFactory({
 					// Create high-order handler to make sure that result will be actual
 					jobs.push(() => { reaction.call(this, result) });
 				}
-				if (!perpetual || this[$promise].stopped) this[$promise].fulfillReactions = []; // Clear if not staying alive
+				if (!perpetual || !this[$promiseEnabled]) this[$promise].fulfillReactions = []; // Clear if not staying alive
 				this[$doJob](jobs);
 			}
 		},
 		[$reject]: {
 			value: function(e) {
+				if (!this[$promiseEnabled]) return null;
+				if (searchOutOfUse) this[$activity]();
 				this[$promise].rejectionHandled = false;
-				if (this[$promise].stopped) return null;
 				let jobs = [];
 				if (!perpetual && this[$promise].state !== $statePending) { throw new Error("Promise can not be rejected second time. To use multiple rejectings compile Promise with option perpetual = true."); return null; }
 
@@ -253,7 +274,7 @@ export default function promiseFactory({
 					// Create high-order handler to make sure that result will be actual
 					jobs.push(function() { reaction.call(this, e) });
 				}
-				if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
+				if (!perpetual || !this[$promiseEnabled]) this[$promise].rejectReactions = []; // Clear if not staying alive
 				
 				if (jobs.length>0) {
 					this[$doJob](jobs, true);
@@ -291,15 +312,16 @@ export default function promiseFactory({
 				Rejection can not be hidden from developer
 				*/
 				
-				let jobList = () => {
+				let jobList = function(result) {
+					if (!this[$promiseEnabled]) return;
 					for (var i =0;i<jobs.length;++i) {
-						jobs[i].call(this, this[$promise].result);
+						jobs[i].call(this, result);
 						jobs.splice(i, 1);
 						i--;
 					}
 				}
 				if (immediate) jobList();
-				else setTimeout(jobList, 0);
+				else setTimeout(jobList.bind(this, this[$promise].result), 0);
 			}
 		},
 		[$_customizedMethodsNames.execute]: {
@@ -334,12 +356,28 @@ export default function promiseFactory({
 		**/
 		[$_customizedMethodsNames.destroy]: {
 			value: function() {
+				if (this.hasOwnProperty("destroyed")) return;
+				this.destroyed = true;
 				this[$_customizedMethodsNames.stop]();
 				this[$reset]();
 				for (let handler of this[$promise].destroyHandlers) {
 					handler();
 				}
+				/* Destroys all child Promises */
+				for (let reaction of this[$promise].fulfillReactions) {
+					if ("function"===typeof reaction.destroy) reaction.destroy();
+				}
+				for (let reaction of this[$promise].rejectReactions) {
+					if ("function"===typeof reaction.destroy) reaction.destroy();
+				}
+				this[$promise].fulfillReactions = [];
+				this[$promise].rejectReactions = [];
 				this[$reinitialization]();
+				for (var i in this) {
+					if (this.hasOwnProperty(i)) {
+						this[i] = null;
+					}
+				}
 			}
 		},
 		/*
@@ -355,7 +393,7 @@ export default function promiseFactory({
 		*/
 		[$_customizedMethodsNames.stop]: {
 			value: function() {
-				this[$promise].stopped = true;
+				this[$promiseEnabled] = false;
 			}
 		},
 		[$_customizedMethodsNames.then]: {
@@ -364,7 +402,7 @@ export default function promiseFactory({
 				var promise = new CustomizedPromise((resolve, reject) => {
 
 					if ("function"===typeof onResolved) {
-						let subResolver = createSubResolver(onResolved, resolve, reject);
+						let subResolver = createSubResolver(onResolved, resolve, reject, createDestroyerFor(this));
 						if (this[$promise].state === $stateResolved) {
 							this[$doJob]([
 								subResolver
@@ -380,7 +418,7 @@ export default function promiseFactory({
 					}
 
 					if ("function"===typeof onRejected) {
-						let subRejecter = createSubResolver(onRejected, resolve, reject);
+						let subRejecter = createSubResolver(onRejected, resolve, reject, createDestroyerFor(this));
 						if (this[$promise].state === $stateRejected) {
 							/*
 							If rejection has not handled by existing rejectReactions
@@ -516,7 +554,7 @@ export default function promiseFactory({
 
 		async(handler, late) {
 			var supreme = this;
-			return function(...args) {
+			return function(...args) { 
 				if (supreme.actual)
 				return handler(...args);
 				else
@@ -621,6 +659,10 @@ export default function promiseFactory({
 			*/
 			[$doJob](jobs, rejection = false) {
 				return methods[$doJob].apply(this, Array.from(arguments));
+			}
+
+			[$activity]() {
+				return methods[$activity].apply(this, Array.from(arguments));
 			}
 
 			[$_customizedMethodsNames.execute](resolver) {

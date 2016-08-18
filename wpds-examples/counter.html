@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>promiseFactory</title>
+	<script>window.module = {};</script>
+	<script src="../es5.js"></script>
+</head>
+<body>
+	<button id="clicker">Click</button><div>You click <span id="report">0</span> times</div>
+	<br />
+	<button id="nativeClicker">Native</button>
+</body>
+<script>
+'use strict';
+var promiseFactory = module.exports;
+
+var expectResults = [1,2,3,4,5];
+var expect = expectResults[Symbol.iterator]();
+
+var StreamedPromise = promiseFactory({
+    perpetual: true,
+    autorun: false,
+    external: true
+});
+
+
+
+
+// Click counter example
+var reportNode = document.getElementById('report');
+var clicks = 0;
+
+function nativeCounter() {
+	clicks++;
+	reportNode.innerHTML = clicks;
+}
+
+var clickCounter = new StreamedPromise();
+
+var listnerHandler = clickCounter.resolve.bind(clickCounter);
+     clickCounter
+     .then(function() {
+     	++clicks;
+       reportNode.innerHTML = clicks;
+        if (clicks>5) {
+        	clickCounter.destroy();
+        	document.getElementById('clicker').removeEventListener('click', listnerHandler);
+        	//clickCounter = null;
+        	//listnerHandler = null;
+        }
+    });
+
+document.getElementById('clicker').addEventListener('click', listnerHandler);
+
+
+// document.getElementById('nativeClicker').addEventListener('click', nativeCounter);
+
+</script>
+</html>

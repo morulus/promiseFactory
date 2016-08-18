@@ -35,7 +35,7 @@ module.exports =
 /******/ 	__webpack_require__.c = installedModules;
 
 /******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
+/******/ 	__webpack_require__.p = "/";
 
 /******/ 	// Load entry module and return exports
 /******/ 	return __webpack_require__(0);
@@ -45,7 +45,7 @@ module.exports =
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	"use strict";
+	'use strict';
 
 	Object.defineProperty(exports, "__esModule", {
 		value: true
@@ -112,7 +112,7 @@ module.exports =
 		// Handler will not called yet
 	});
 
-	deferedResult.execute(); // Force execute resolver
+	deferedResult.execute(); // Force execute resolve$rejectr
 
 	External api example:
 	var deferedResult = new MyPromise();
@@ -161,7 +161,7 @@ module.exports =
 	MyEngine.calculate();
 	MyEngine.then(function() { });
 	**/
-	if ("object" === (typeof window === "undefined" ? "undefined" : _typeof(window)) && "function" !== typeof window.Symbol) window.Symbol = __webpack_require__(1);
+	//if ("object"===typeof window && "function"!==typeof window.Symbol) window.Symbol = require('es6-symbol');
 
 	var $promise = Symbol,
 	    $execute = Symbol('execute'),
@@ -173,6 +173,9 @@ module.exports =
 	    $stateResolved = Symbol('resolved'),
 	    $stateRejected = Symbol('rejected'),
 	    $reinitialization = Symbol('reinitialization'),
+	    $promiseEnabled = Symbol('promiseEnabled'),
+	    $activity = Symbol(),
+	    $outOfUse = Symbol(),
 	    $defaultMethodsNames = {
 		execute: 'execute',
 		resolve: 'resolve',
@@ -191,11 +194,13 @@ module.exports =
 		_classCallCheck(this, idlePromise);
 	};
 
-	function createSubResolver(handler, resolve, reject) {
+	var createDestroyerFor = new Function('p', 'return "function"===typeof p.destroy ? function() { p.destroy(); } : new Function()');
+
+	function createSubResolver(handler, resolve, reject, destroy) {
 		var subRes = function subResolver(result) {
 			try {
 				var thenResult = handler(result);
-				if ("object" === (typeof thenResult === "undefined" ? "undefined" : _typeof(thenResult)) && (thenResult instanceof Promise || thenResult instanceof idlePromise)) {
+				if ("object" === (typeof thenResult === 'undefined' ? 'undefined' : _typeof(thenResult)) && (thenResult instanceof Promise || thenResult instanceof idlePromise)) {
 					thenResult[!(thenResult instanceof idlePromise) ? 'then' : thenResult.$_customizedMethodsNames.then](function (result) {
 						resolve(result);
 					});
@@ -211,6 +216,7 @@ module.exports =
 			}
 		};
 		subRes.reject = reject;
+		subRes.destroy = destroy;
 		return subRes;
 	};
 
@@ -227,6 +233,8 @@ module.exports =
 		var external = _ref$external === undefined ? false : _ref$external;
 		var _ref$chaining = _ref.chaining;
 		var chaining = _ref$chaining === undefined ? true : _ref$chaining;
+		var _ref$searchOutOfUse = _ref.searchOutOfUse;
+		var searchOutOfUse = _ref$searchOutOfUse === undefined ? false : _ref$searchOutOfUse;
 		var _ref$methodsNames = _ref.methodsNames;
 		var methodsNames = _ref$methodsNames === undefined ? {} : _ref$methodsNames;
 
@@ -251,19 +259,30 @@ module.exports =
 						configurable: false,
 						value: $_customizedMethodsNames
 					});
-
+					if (searchOutOfUse) {
+						var e = new Error();
+						this[$outOfUse] = {
+							callback: new Function('console.warn("Unused Promise found", "' + e.stack.replace(/[\n\r]/g, " ") + '")')
+						};
+						this[$activity]();
+					}
 					if (autorun) this[$execute]();
 				}
 			}
-		}, _defineProperty(_Object$create, $reinitialization, {
+		}, _defineProperty(_Object$create, $activity, {
+			value: function value() {
+				clearTimeout(this[$outOfUse].timer);
+				this[$outOfUse].timer = setTimeout(this[$outOfUse].callback, 10000);
+			}
+		}), _defineProperty(_Object$create, $reinitialization, {
 			value: function value(autorun, resolver) {
+				this[$promiseEnabled] = true;
 				this[$promise] = {
 					state: $statePending,
 					resolver: resolver || null,
 					fulfillReactions: [],
 					rejectReactions: [],
 					result: null, // Result value
-					stopped: false,
 					destroyHandlers: [],
 					rejectionHandled: false
 				};
@@ -290,7 +309,8 @@ module.exports =
 			value: function value(result) {
 				var _this = this;
 
-				if (this[$promise].stopped) return null;
+				if (!this[$promiseEnabled]) return null;
+				if (searchOutOfUse) this[$activity]();
 				var jobs = [];
 
 				if (!perpetual && this[$promise].state !== $statePending) {
@@ -332,13 +352,14 @@ module.exports =
 					}
 				}
 
-				if (!perpetual || this[$promise].stopped) this[$promise].fulfillReactions = []; // Clear if not staying alive
+				if (!perpetual || !this[$promiseEnabled]) this[$promise].fulfillReactions = []; // Clear if not staying alive
 				this[$doJob](jobs);
 			}
 		}), _defineProperty(_Object$create, $reject, {
 			value: function value(e) {
+				if (!this[$promiseEnabled]) return null;
+				if (searchOutOfUse) this[$activity]();
 				this[$promise].rejectionHandled = false;
-				if (this[$promise].stopped) return null;
 				var jobs = [];
 				if (!perpetual && this[$promise].state !== $statePending) {
 					throw new Error("Promise can not be rejected second time. To use multiple rejectings compile Promise with option perpetual = true.");return null;
@@ -378,7 +399,7 @@ module.exports =
 					}
 				}
 
-				if (!perpetual || this[$promise].stopped) this[$promise].rejectReactions = []; // Clear if not staying alive
+				if (!perpetual || !this[$promiseEnabled]) this[$promise].rejectReactions = []; // Clear if not staying alive
 
 				if (jobs.length > 0) {
 					this[$doJob](jobs, true);
@@ -427,22 +448,21 @@ module.exports =
 			}
 		}), _defineProperty(_Object$create, $doJob, {
 			value: function value(jobs) {
-				var _this2 = this;
-
 				var rejection = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
 				/*
 	   Rejection can not be hidden from developer
 	   */
 
-				var jobList = function jobList() {
+				var jobList = function jobList(result) {
+					if (!this[$promiseEnabled]) return;
 					for (var i = 0; i < jobs.length; ++i) {
-						jobs[i].call(_this2, _this2[$promise].result);
+						jobs[i].call(this, result);
 						jobs.splice(i, 1);
 						i--;
 					}
 				};
-				if (immediate) jobList();else setTimeout(jobList, 0);
+				if (immediate) jobList();else setTimeout(jobList.bind(this, this[$promise].result), 0);
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.execute, {
 			value: function value(resolver) {
@@ -477,6 +497,8 @@ module.exports =
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.destroy, {
 			value: function value() {
+				if (this.hasOwnProperty("destroyed")) return;
+				this.destroyed = true;
 				this[$_customizedMethodsNames.stop]();
 				this[$reset]();
 				var _iteratorNormalCompletion4 = true;
@@ -489,6 +511,7 @@ module.exports =
 
 						handler();
 					}
+					/* Destroys all child Promises */
 				} catch (err) {
 					_didIteratorError4 = true;
 					_iteratorError4 = err;
@@ -504,7 +527,64 @@ module.exports =
 					}
 				}
 
+				var _iteratorNormalCompletion5 = true;
+				var _didIteratorError5 = false;
+				var _iteratorError5 = undefined;
+
+				try {
+					for (var _iterator5 = this[$promise].fulfillReactions[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+						var _reaction2 = _step5.value;
+
+						if ("function" === typeof _reaction2.destroy) _reaction2.destroy();
+					}
+				} catch (err) {
+					_didIteratorError5 = true;
+					_iteratorError5 = err;
+				} finally {
+					try {
+						if (!_iteratorNormalCompletion5 && _iterator5.return) {
+							_iterator5.return();
+						}
+					} finally {
+						if (_didIteratorError5) {
+							throw _iteratorError5;
+						}
+					}
+				}
+
+				var _iteratorNormalCompletion6 = true;
+				var _didIteratorError6 = false;
+				var _iteratorError6 = undefined;
+
+				try {
+					for (var _iterator6 = this[$promise].rejectReactions[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+						var _reaction3 = _step6.value;
+
+						if ("function" === typeof _reaction3.destroy) _reaction3.destroy();
+					}
+				} catch (err) {
+					_didIteratorError6 = true;
+					_iteratorError6 = err;
+				} finally {
+					try {
+						if (!_iteratorNormalCompletion6 && _iterator6.return) {
+							_iterator6.return();
+						}
+					} finally {
+						if (_didIteratorError6) {
+							throw _iteratorError6;
+						}
+					}
+				}
+
+				this[$promise].fulfillReactions = [];
+				this[$promise].rejectReactions = [];
 				this[$reinitialization]();
+				for (var i in this) {
+					if (this.hasOwnProperty(i)) {
+						this[i] = null;
+					}
+				}
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.onDestroy, {
 			value: function value(customHandler) {
@@ -512,11 +592,11 @@ module.exports =
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.stop, {
 			value: function value() {
-				this[$promise].stopped = true;
+				this[$promiseEnabled] = false;
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.then, {
 			value: function value() {
-				var _this3 = this;
+				var _this2 = this;
 
 				var onResolved = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
 				var onRejected = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
@@ -525,27 +605,27 @@ module.exports =
 				var promise = new CustomizedPromise(function (resolve, reject) {
 
 					if ("function" === typeof onResolved) {
-						var subResolver = createSubResolver(onResolved, resolve, reject);
-						if (_this3[$promise].state === $stateResolved) {
-							_this3[$doJob]([subResolver]);
-							if (perpetual) _this3[$promise].fulfillReactions.push(subResolver);
+						var subResolver = createSubResolver(onResolved, resolve, reject, createDestroyerFor(_this2));
+						if (_this2[$promise].state === $stateResolved) {
+							_this2[$doJob]([subResolver]);
+							if (perpetual) _this2[$promise].fulfillReactions.push(subResolver);
 						} else {
-							_this3[$promise].fulfillReactions.push(subResolver);
+							_this2[$promise].fulfillReactions.push(subResolver);
 						}
 					}
 
 					if ("function" === typeof onRejected) {
-						var subRejecter = createSubResolver(onRejected, resolve, reject);
-						if (_this3[$promise].state === $stateRejected) {
+						var subRejecter = createSubResolver(onRejected, resolve, reject, createDestroyerFor(_this2));
+						if (_this2[$promise].state === $stateRejected) {
 							/*
 	      If rejection has not handled by existing rejectReactions
 	      then it must inform to Promise that it did it now.
 	      */
-							_this3[$promise].rejectionHandled = true;
-							_this3[$doJob]([subRejecter]);
-							if (perpetual) _this3[$promise].rejectReactions.push(subRejecter);
+							_this2[$promise].rejectionHandled = true;
+							_this2[$doJob]([subRejecter]);
+							if (perpetual) _this2[$promise].rejectReactions.push(subRejecter);
 						} else {
-							_this3[$promise].rejectReactions.push(subRejecter);
+							_this2[$promise].rejectReactions.push(subRejecter);
 						}
 					}
 				});
@@ -564,7 +644,7 @@ module.exports =
 			value: function value(onAlways) {
 				return this[$_customizedMethodsNames.then](onAlways, onAlways);
 			}
-		}), _defineProperty(_Object$create, "transform", {
+		}), _defineProperty(_Object$create, 'transform', {
 			value: function value(newConfiguration) {
 				throw 'Method deprecated!';
 				for (var key in newConfiguration) {
@@ -654,12 +734,12 @@ module.exports =
 			}
 
 			_createClass(SupremeSubject, [{
-				key: "backtrack",
+				key: 'backtrack',
 				value: function backtrack(destroyer) {
 					if ("function" === typeof destroyer) this.backtracks.push(destroyer);
 				}
 			}, {
-				key: "async",
+				key: 'async',
 				value: function async(handler, late) {
 					var supreme = this;
 					return function () {
@@ -667,7 +747,7 @@ module.exports =
 					};
 				}
 			}, {
-				key: "destroy",
+				key: 'destroy',
 				value: function destroy() {
 					this.actual = false;
 					this.backtracks.forEach(function (destroyer) {
@@ -721,22 +801,22 @@ module.exports =
 				_inherits(CustomizedPromise, _idlePromise);
 
 				_createClass(CustomizedPromise, null, [{
-					key: "all",
+					key: 'all',
 					value: function all(promises) {
 						return methodAll.apply(this, Array.from(arguments));
 					}
 				}, {
-					key: "resolve",
+					key: 'resolve',
 					value: function resolve(value) {
 						return directResolve.apply(this, Array.from(arguments));
 					}
 				}, {
-					key: "reject",
+					key: 'reject',
 					value: function reject(e) {
 						return directReject.apply(this, Array.from(arguments));
 					}
 				}, {
-					key: "supreme",
+					key: 'supreme',
 					value: function supreme() {
 						return methodSupreme.apply(this, Array.from(arguments));
 					}
@@ -747,9 +827,9 @@ module.exports =
 
 					_classCallCheck(this, CustomizedPromise);
 
-					var _this4 = _possibleConstructorReturn(this, Object.getPrototypeOf(CustomizedPromise).call(this));
+					var _this3 = _possibleConstructorReturn(this, Object.getPrototypeOf(CustomizedPromise).call(this));
 
-					return _ret3 = methods.constructor.apply(_this4, Array.from(arguments)), _possibleConstructorReturn(_this4, _ret3);
+					return _ret3 = methods.constructor.apply(_this3, Array.from(arguments)), _possibleConstructorReturn(_this3, _ret3);
 				}
 
 				_createClass(CustomizedPromise, [{
@@ -793,6 +873,11 @@ module.exports =
 						var rejection = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
 						return methods[$doJob].apply(this, Array.from(arguments));
+					}
+				}, {
+					key: $activity,
+					value: function value() {
+						return methods[$activity].apply(this, Array.from(arguments));
 					}
 				}, {
 					key: $_customizedMethodsNames.execute,
@@ -860,7 +945,7 @@ module.exports =
 						return methods[$_customizedMethodsNames.catch].apply(this, Array.from(arguments));
 					}
 				}, {
-					key: "transform",
+					key: 'transform',
 					value: function transform(newConfiguration) {
 						return methods.transform(false, onRejected);
 					}
@@ -872,437 +957,7 @@ module.exports =
 
 		return CustomizedPromise;
 	}
-	module.exports = exports["default"];
-
-/***/ },
-/* 1 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	module.exports = __webpack_require__(2)() ? Symbol : __webpack_require__(3);
-
-
-/***/ },
-/* 2 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var validTypes = { object: true, symbol: true };
-
-	module.exports = function () {
-		var symbol;
-		if (typeof Symbol !== 'function') return false;
-		symbol = Symbol('test symbol');
-		try { String(symbol); } catch (e) { return false; }
-
-		// Return 'true' also for polyfills
-		if (!validTypes[typeof Symbol.iterator]) return false;
-		if (!validTypes[typeof Symbol.toPrimitive]) return false;
-		if (!validTypes[typeof Symbol.toStringTag]) return false;
-
-		return true;
-	};
-
-
-/***/ },
-/* 3 */
-/***/ function(module, exports, __webpack_require__) {
-
-	// ES2015 Symbol polyfill for environments that do not support it (or partially support it)
-
-	'use strict';
-
-	var d              = __webpack_require__(4)
-	  , validateSymbol = __webpack_require__(17)
-
-	  , create = Object.create, defineProperties = Object.defineProperties
-	  , defineProperty = Object.defineProperty, objPrototype = Object.prototype
-	  , NativeSymbol, SymbolPolyfill, HiddenSymbol, globalSymbols = create(null)
-	  , isNativeSafe;
-
-	if (typeof Symbol === 'function') {
-		NativeSymbol = Symbol;
-		try {
-			String(NativeSymbol());
-			isNativeSafe = true;
-		} catch (ignore) {}
-	}
-
-	var generateName = (function () {
-		var created = create(null);
-		return function (desc) {
-			var postfix = 0, name, ie11BugWorkaround;
-			while (created[desc + (postfix || '')]) ++postfix;
-			desc += (postfix || '');
-			created[desc] = true;
-			name = '@@' + desc;
-			defineProperty(objPrototype, name, d.gs(null, function (value) {
-				// For IE11 issue see:
-				// https://connect.microsoft.com/IE/feedbackdetail/view/1928508/
-				//    ie11-broken-getters-on-dom-objects
-				// https://github.com/medikoo/es6-symbol/issues/12
-				if (ie11BugWorkaround) return;
-				ie11BugWorkaround = true;
-				defineProperty(this, name, d(value));
-				ie11BugWorkaround = false;
-			}));
-			return name;
-		};
-	}());
-
-	// Internal constructor (not one exposed) for creating Symbol instances.
-	// This one is used to ensure that `someSymbol instanceof Symbol` always return false
-	HiddenSymbol = function Symbol(description) {
-		if (this instanceof HiddenSymbol) throw new TypeError('TypeError: Symbol is not a constructor');
-		return SymbolPolyfill(description);
-	};
-
-	// Exposed `Symbol` constructor
-	// (returns instances of HiddenSymbol)
-	module.exports = SymbolPolyfill = function Symbol(description) {
-		var symbol;
-		if (this instanceof Symbol) throw new TypeError('TypeError: Symbol is not a constructor');
-		if (isNativeSafe) return NativeSymbol(description);
-		symbol = create(HiddenSymbol.prototype);
-		description = (description === undefined ? '' : String(description));
-		return defineProperties(symbol, {
-			__description__: d('', description),
-			__name__: d('', generateName(description))
-		});
-	};
-	defineProperties(SymbolPolyfill, {
-		for: d(function (key) {
-			if (globalSymbols[key]) return globalSymbols[key];
-			return (globalSymbols[key] = SymbolPolyfill(String(key)));
-		}),
-		keyFor: d(function (s) {
-			var key;
-			validateSymbol(s);
-			for (key in globalSymbols) if (globalSymbols[key] === s) return key;
-		}),
-
-		// If there's native implementation of given symbol, let's fallback to it
-		// to ensure proper interoperability with other native functions e.g. Array.from
-		hasInstance: d('', (NativeSymbol && NativeSymbol.hasInstance) || SymbolPolyfill('hasInstance')),
-		isConcatSpreadable: d('', (NativeSymbol && NativeSymbol.isConcatSpreadable) ||
-			SymbolPolyfill('isConcatSpreadable')),
-		iterator: d('', (NativeSymbol && NativeSymbol.iterator) || SymbolPolyfill('iterator')),
-		match: d('', (NativeSymbol && NativeSymbol.match) || SymbolPolyfill('match')),
-		replace: d('', (NativeSymbol && NativeSymbol.replace) || SymbolPolyfill('replace')),
-		search: d('', (NativeSymbol && NativeSymbol.search) || SymbolPolyfill('search')),
-		species: d('', (NativeSymbol && NativeSymbol.species) || SymbolPolyfill('species')),
-		split: d('', (NativeSymbol && NativeSymbol.split) || SymbolPolyfill('split')),
-		toPrimitive: d('', (NativeSymbol && NativeSymbol.toPrimitive) || SymbolPolyfill('toPrimitive')),
-		toStringTag: d('', (NativeSymbol && NativeSymbol.toStringTag) || SymbolPolyfill('toStringTag')),
-		unscopables: d('', (NativeSymbol && NativeSymbol.unscopables) || SymbolPolyfill('unscopables'))
-	});
-
-	// Internal tweaks for real symbol producer
-	defineProperties(HiddenSymbol.prototype, {
-		constructor: d(SymbolPolyfill),
-		toString: d('', function () { return this.__name__; })
-	});
-
-	// Proper implementation of methods exposed on Symbol.prototype
-	// They won't be accessible on produced symbol instances as they derive from HiddenSymbol.prototype
-	defineProperties(SymbolPolyfill.prototype, {
-		toString: d(function () { return 'Symbol (' + validateSymbol(this).__description__ + ')'; }),
-		valueOf: d(function () { return validateSymbol(this); })
-	});
-	defineProperty(SymbolPolyfill.prototype, SymbolPolyfill.toPrimitive, d('', function () {
-		var symbol = validateSymbol(this);
-		if (typeof symbol === 'symbol') return symbol;
-		return symbol.toString();
-	}));
-	defineProperty(SymbolPolyfill.prototype, SymbolPolyfill.toStringTag, d('c', 'Symbol'));
-
-	// Proper implementaton of toPrimitive and toStringTag for returned symbol instances
-	defineProperty(HiddenSymbol.prototype, SymbolPolyfill.toStringTag,
-		d('c', SymbolPolyfill.prototype[SymbolPolyfill.toStringTag]));
-
-	// Note: It's important to define `toPrimitive` as last one, as some implementations
-	// implement `toPrimitive` natively without implementing `toStringTag` (or other specified symbols)
-	// And that may invoke error in definition flow:
-	// See: https://github.com/medikoo/es6-symbol/issues/13#issuecomment-164146149
-	defineProperty(HiddenSymbol.prototype, SymbolPolyfill.toPrimitive,
-		d('c', SymbolPolyfill.prototype[SymbolPolyfill.toPrimitive]));
-
-
-/***/ },
-/* 4 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	var assign        = __webpack_require__(5)
-	  , normalizeOpts = __webpack_require__(12)
-	  , isCallable    = __webpack_require__(13)
-	  , contains      = __webpack_require__(14)
-
-	  , d;
-
-	d = module.exports = function (dscr, value/*, options*/) {
-		var c, e, w, options, desc;
-		if ((arguments.length < 2) || (typeof dscr !== 'string')) {
-			options = value;
-			value = dscr;
-			dscr = null;
-		} else {
-			options = arguments[2];
-		}
-		if (dscr == null) {
-			c = w = true;
-			e = false;
-		} else {
-			c = contains.call(dscr, 'c');
-			e = contains.call(dscr, 'e');
-			w = contains.call(dscr, 'w');
-		}
-
-		desc = { value: value, configurable: c, enumerable: e, writable: w };
-		return !options ? desc : assign(normalizeOpts(options), desc);
-	};
-
-	d.gs = function (dscr, get, set/*, options*/) {
-		var c, e, options, desc;
-		if (typeof dscr !== 'string') {
-			options = set;
-			set = get;
-			get = dscr;
-			dscr = null;
-		} else {
-			options = arguments[3];
-		}
-		if (get == null) {
-			get = undefined;
-		} else if (!isCallable(get)) {
-			options = get;
-			get = set = undefined;
-		} else if (set == null) {
-			set = undefined;
-		} else if (!isCallable(set)) {
-			options = set;
-			set = undefined;
-		}
-		if (dscr == null) {
-			c = true;
-			e = false;
-		} else {
-			c = contains.call(dscr, 'c');
-			e = contains.call(dscr, 'e');
-		}
-
-		desc = { get: get, set: set, configurable: c, enumerable: e };
-		return !options ? desc : assign(normalizeOpts(options), desc);
-	};
-
-
-/***/ },
-/* 5 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	module.exports = __webpack_require__(6)()
-		? Object.assign
-		: __webpack_require__(7);
-
-
-/***/ },
-/* 6 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	module.exports = function () {
-		var assign = Object.assign, obj;
-		if (typeof assign !== 'function') return false;
-		obj = { foo: 'raz' };
-		assign(obj, { bar: 'dwa' }, { trzy: 'trzy' });
-		return (obj.foo + obj.bar + obj.trzy) === 'razdwatrzy';
-	};
-
-
-/***/ },
-/* 7 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	var keys  = __webpack_require__(8)
-	  , value = __webpack_require__(11)
-
-	  , max = Math.max;
-
-	module.exports = function (dest, src/*, …srcn*/) {
-		var error, i, l = max(arguments.length, 2), assign;
-		dest = Object(value(dest));
-		assign = function (key) {
-			try { dest[key] = src[key]; } catch (e) {
-				if (!error) error = e;
-			}
-		};
-		for (i = 1; i < l; ++i) {
-			src = arguments[i];
-			keys(src).forEach(assign);
-		}
-		if (error !== undefined) throw error;
-		return dest;
-	};
-
-
-/***/ },
-/* 8 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	module.exports = __webpack_require__(9)()
-		? Object.keys
-		: __webpack_require__(10);
-
-
-/***/ },
-/* 9 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	module.exports = function () {
-		try {
-			Object.keys('primitive');
-			return true;
-		} catch (e) { return false; }
-	};
-
-
-/***/ },
-/* 10 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var keys = Object.keys;
-
-	module.exports = function (object) {
-		return keys(object == null ? object : Object(object));
-	};
-
-
-/***/ },
-/* 11 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	module.exports = function (value) {
-		if (value == null) throw new TypeError("Cannot use null or undefined");
-		return value;
-	};
-
-
-/***/ },
-/* 12 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var forEach = Array.prototype.forEach, create = Object.create;
-
-	var process = function (src, obj) {
-		var key;
-		for (key in src) obj[key] = src[key];
-	};
-
-	module.exports = function (options/*, …options*/) {
-		var result = create(null);
-		forEach.call(arguments, function (options) {
-			if (options == null) return;
-			process(Object(options), result);
-		});
-		return result;
-	};
-
-
-/***/ },
-/* 13 */
-/***/ function(module, exports) {
-
-	// Deprecated
-
-	'use strict';
-
-	module.exports = function (obj) { return typeof obj === 'function'; };
-
-
-/***/ },
-/* 14 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	module.exports = __webpack_require__(15)()
-		? String.prototype.contains
-		: __webpack_require__(16);
-
-
-/***/ },
-/* 15 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var str = 'razdwatrzy';
-
-	module.exports = function () {
-		if (typeof str.contains !== 'function') return false;
-		return ((str.contains('dwa') === true) && (str.contains('foo') === false));
-	};
-
-
-/***/ },
-/* 16 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	var indexOf = String.prototype.indexOf;
-
-	module.exports = function (searchString/*, position*/) {
-		return indexOf.call(this, searchString, arguments[1]) > -1;
-	};
-
-
-/***/ },
-/* 17 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-
-	var isSymbol = __webpack_require__(18);
-
-	module.exports = function (value) {
-		if (!isSymbol(value)) throw new TypeError(value + " is not a symbol");
-		return value;
-	};
-
-
-/***/ },
-/* 18 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	module.exports = function (x) {
-		if (!x) return false;
-		if (typeof x === 'symbol') return true;
-		if (!x.constructor) return false;
-		if (x.constructor.name !== 'Symbol') return false;
-		return (x[x.constructor.toStringTag] === 'Symbol');
-	};
-
+	module.exports = exports['default'];
 
 /***/ }
 /******/ ]);

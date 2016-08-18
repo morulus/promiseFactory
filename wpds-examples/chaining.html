@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>promiseFactory</title>
+    <script>window.module = {};</script>
+    <script src="../es5.js"></script>
+</head>
+<body>
+<button id="clicker">Click</button><div>You click <span id="report">0</span> times</div>
+<br />
+<button id="nativeClicker">Native</button>
+</body>
+<script>
+    'use strict';
+    var promiseFactory = module.exports;
+    var ClasicPromise = promiseFactory({
+    });
+    ClasicPromise.resolve(2).then(function(result) {
+
+        var p = new Promise(function(resolve, reject) {
+            resolve(3);
+        });
+        return p;
+    })
+    .then(function(result) {
+
+        return new ClasicPromise(function(resolve, reject) {
+            resolve(4);
+        });
+    })
+    .then(function(result) {
+
+        throw new Error('done');
+    })
+    .catch(function(e) {
+
+        return new Promise(function(resolve, reject) {
+            reject(new Error("done2"));
+        });
+    })
+    .catch(function(e) {
+        debugger;
+    })
+
+</script>
+</html>
+

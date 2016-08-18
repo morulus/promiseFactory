@@ -6,7 +6,8 @@ module.exports = {
         path: __dirname + "/",
         filename: "es5.js",
         libraryTarget: 'commonjs2',
-        library: 'promiseFactory'
+        library: 'promiseFactory',
+        publicPath: "/"
     },
     plugins: [
         new webpack.DefinePlugin({
