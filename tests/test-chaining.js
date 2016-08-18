@@ -2,10 +2,11 @@
 var tap = require('tap');
 var promiseFactory = require('./../es5.js');
 
-tap.test('Classc chaining', function(t) {
-    t.plan(3);
-    var ClasicPromise = promiseFactory({
+var ClasicPromise = promiseFactory({
     });
+tap.test('Classc chaining', function(t) {
+    t.plan(1);
+    
 
     var tester = new ClasicPromise(function(resolve, reject) {
         resolve(1);
@@ -14,9 +15,11 @@ tap.test('Classc chaining', function(t) {
             t.ok(result===1, 'First result must equals 1');
             return 2;
         });
+});
 
-
-    tester.then(function(result) {
+tap.test('Return promise', function(t) {
+    t.plan(5);
+    ClasicPromise.resolve(2).then(function(result) {
             t.ok(result===2, 'Second result must equals 2');
             var p = new Promise(function(resolve, reject) {
                 resolve(3);
@@ -24,12 +27,12 @@ tap.test('Classc chaining', function(t) {
             return p;
         })
         .then(function(result) {
-            //t.ok(result===3, 'Third result must equals 3');
+            t.ok(result===3, 'Third result must equals 3');
             return new ClasicPromise(function(resolve, reject) {
                 resolve(4);
             });
-        });
-        /*.then(function(result) {
+        })
+        .then(function(result) {
             t.ok(result===4, 'Fourth result must equals 4');
             throw new Error('done');
         })
@@ -41,5 +44,5 @@ tap.test('Classc chaining', function(t) {
         })
         .catch(function(e) {
             t.ok(e.message=='done2', 'Reject message must be \'done2\'');
-        })*/
+        })
 });

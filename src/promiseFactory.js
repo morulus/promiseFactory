@@ -492,6 +492,18 @@ export default function promiseFactory({
 		return allPromise;
 	};
 
+	var directResolve = function(value) {
+		return new CustomizedPromise(function(resolve) {
+			resolve(value);
+		});
+	}
+
+	var directReject = function(e) {
+		return new CustomizedPromise(function(resolve, reject) {
+			reject(e);
+		});
+	}
+
 	class SupremeSubject {
 		constructor() {
 			this.backtracks = [];
@@ -554,6 +566,8 @@ export default function promiseFactory({
 
 		CustomizedPromise.all = methodAll;
 		CustomizedPromise.supreme = methodSupreme;
+		CustomizedPromise.resolve = directResolve;
+		CustomizedPromise.reject = directReject;
 		
 	} else {
 		CustomizedPromise = class CustomizedPromise extends idlePromise {
@@ -561,6 +575,18 @@ export default function promiseFactory({
 			static all(promises) {
 				return methodAll.apply(this, Array.from(arguments));
 			}
+
+			static resolve(value) {
+				return directResolve.apply(this, Array.from(arguments));
+			}
+
+			static reject(e) {
+				return directReject.apply(this, Array.from(arguments));
+			}
+
+            static supreme() {
+                return methodSupreme.apply(this, Array.from(arguments));
+            }
 
 			constructor(resolver) {
 				super();

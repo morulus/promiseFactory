@@ -633,6 +633,18 @@ module.exports =
 			return allPromise;
 		};
 
+		var directResolve = function directResolve(value) {
+			return new CustomizedPromise(function (resolve) {
+				resolve(value);
+			});
+		};
+
+		var directReject = function directReject(e) {
+			return new CustomizedPromise(function (resolve, reject) {
+				reject(e);
+			});
+		};
+
 		var SupremeSubject = function () {
 			function SupremeSubject() {
 				_classCallCheck(this, SupremeSubject);
@@ -702,6 +714,8 @@ module.exports =
 
 			CustomizedPromise.all = methodAll;
 			CustomizedPromise.supreme = methodSupreme;
+			CustomizedPromise.resolve = directResolve;
+			CustomizedPromise.reject = directReject;
 		} else {
 			CustomizedPromise = function (_idlePromise) {
 				_inherits(CustomizedPromise, _idlePromise);
@@ -710,6 +724,21 @@ module.exports =
 					key: "all",
 					value: function all(promises) {
 						return methodAll.apply(this, Array.from(arguments));
+					}
+				}, {
+					key: "resolve",
+					value: function resolve(value) {
+						return directResolve.apply(this, Array.from(arguments));
+					}
+				}, {
+					key: "reject",
+					value: function reject(e) {
+						return directReject.apply(this, Array.from(arguments));
+					}
+				}, {
+					key: "supreme",
+					value: function supreme() {
+						return methodSupreme.apply(this, Array.from(arguments));
 					}
 				}]);
 
