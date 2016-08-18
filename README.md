@@ -14,7 +14,7 @@ ES5 compatible (excludes es6 features)
 var promiseFactory = require('promiseFactory/es5');
 ```
 
-## Usage
+## Configurate
 ```js
 var MyPromise = promiseFactory({
   immediate: false, 
@@ -31,6 +31,28 @@ var MyPromise = promiseFactory({
 - autorun (default: TRUE) If FALSE function `resolver` will not executed automaticly, you have to call `execute` method manually.
 - external: (default: FALSE) If TRUE allows to call methods `resolve` and `reject` from outside of Promise.
 - chaining: (default: TRUE) If FALSE disables promise chaining, so `then` always returns origin Promise ref.
+
+## Usage
+Create your own Promise in a bundle of your project to use special abilities
+
+```
+global.StreamedPromise = promiseFactory({
+	perpetual: true,
+	autorun: false,
+	external: true
+});
+
+// Click counter example
+var clicks = 0;
+var clickCounter = StreamedPromise;
+clickCounter
+.then(function() { 
+ ++clicks;
+ console.log('You clicks ', clicks, 'times');
+});
+
+$("button").click(StreamedPromise.resolve.bind(StreamedPromise));
+```
 
 # License
 MIT
