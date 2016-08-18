@@ -1,6 +1,6 @@
 promiseFactory
 --
-An function promiseFactory can create custom Promise with your own configuration
+An factory-function that can create custom Promise with your own configuration
 
 # Getting started
 
