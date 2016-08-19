@@ -356,15 +356,15 @@ module.exports =
 	   Rejection can not be hidden from developer
 	   */
 
-				var jobList = function jobList(result) {
+				var jobList = function (result) {
 					if (!this[$promiseEnabled]) return;
 					for (var i = 0; i < jobs.length; ++i) {
 						jobs[i].call(this, result);
 						jobs.splice(i, 1);
 						i--;
 					}
-				};
-				if (immediate) jobList();else setTimeout(jobList.bind(this, this[$promise].result), 0);
+				}.bind(this, this[$promise].result);
+				if (immediate) jobList();else setTimeout(jobList, 0);
 			}
 		}), _defineProperty(_Object$create, $_customizedMethodsNames.execute, {
 			value: function value(resolver) {

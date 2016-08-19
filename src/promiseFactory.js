@@ -222,9 +222,9 @@ export default function promiseFactory({
 						jobs.splice(i, 1);
 						i--;
 					}
-				}
+				}.bind(this, this[$promise].result);
 				if (immediate) jobList();
-				else setTimeout(jobList.bind(this, this[$promise].result), 0);
+				else setTimeout(jobList, 0);
 			}
 		},
 		[$_customizedMethodsNames.execute]: {
