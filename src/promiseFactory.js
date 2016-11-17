@@ -28,7 +28,7 @@ $defaultMethodsNames = {
 
 class idlePromise {
 	constructor() {
-		
+
 	}
 }
 
@@ -61,11 +61,11 @@ function createSubResolver(handler, resolve, reject, destroy) {
 
 
 export default function promiseFactory({
-		immediate = false, 
-		perpetual = false, 
-		autorun = true, 
-		external = false, 
-		chaining = true, 
+		immediate = false,
+		perpetual = false,
+		autorun = true,
+		external = false,
+		chaining = true,
 		searchOutOfUse = false,
 		methodsNames = {}
 	}) {
@@ -129,7 +129,7 @@ export default function promiseFactory({
 				if ("function"===typeof resolver) this[$promise].resolver = resolver;
 
 				if ("function"===typeof this[$promise].resolver) {
-					
+
 					try {
 						this[$promise].resolver(this[$resolve].bind(this), this[$reject].bind(this));
 					} catch(e) {
@@ -138,7 +138,7 @@ export default function promiseFactory({
 				} else if (!external) {
 					throw new Error("Promise requires resolver"); return;
 				}
-				
+
 				return this;
 			}
 		},
@@ -148,13 +148,13 @@ export default function promiseFactory({
 				if (searchOutOfUse) this[$activity]();
 				let jobs = [];
 
-				if (!perpetual && this[$promise].state !== $statePending) { 
-					throw new Error("Promise can not be resolved second time. To use multiple resolvings compile Promise with option perpetual = true."); return null; 
+				if (!perpetual && this[$promise].state !== $statePending) {
+					throw new Error("Promise can not be resolved second time. To use multiple resolvings compile Promise with option perpetual = true."); return null;
 				}
 
 				this[$promise].state = $stateResolved;
 				this[$promise].result = result;
-				
+
 				for (let reaction of this[$promise].fulfillReactions) {
 					// Create high-order handler to make sure that result will be actual
 					jobs.push(() => { reaction.call(this, result) });
@@ -178,7 +178,7 @@ export default function promiseFactory({
 					jobs.push(function() { reaction.call(this, e) });
 				}
 				if (!perpetual || !this[$promiseEnabled]) this[$promise].rejectReactions = []; // Clear if not staying alive
-				
+
 				if (jobs.length>0) {
 					this[$doJob](jobs, true);
 				} else {
@@ -196,7 +196,7 @@ export default function promiseFactory({
 						}
 					}
 				}
-				
+
 			}
 		},
 		[$reset]: {
@@ -214,7 +214,7 @@ export default function promiseFactory({
 				/*
 				Rejection can not be hidden from developer
 				*/
-				
+
 				let jobList = function(result) {
 					if (!this[$promiseEnabled]) return;
 					for (var i =0;i<jobs.length;++i) {
@@ -301,7 +301,7 @@ export default function promiseFactory({
 		},
 		[$_customizedMethodsNames.then]: {
 			value: function(onResolved = false, onRejected = false) {
-
+				if (!onResolved) onResolved = (r) => r;
 				var promise = new CustomizedPromise((resolve, reject) => {
 
 					if ("function"===typeof onResolved) {
@@ -392,7 +392,7 @@ export default function promiseFactory({
 							break;
 						}
 					}
-					
+
 				}
 			}
 		}
@@ -419,7 +419,7 @@ export default function promiseFactory({
 						clearTimeout(timer);
 						timer = setTimeout(validate);
 					}
-					
+
 				})
 				.catch(function(e) {
 					clearTimeout(timer);
@@ -427,7 +427,7 @@ export default function promiseFactory({
 				});
 			});
 		});
-		
+
 		if (!autorun) allPromise[$execute]();
 
 		return allPromise;
@@ -457,7 +457,7 @@ export default function promiseFactory({
 
 		async(handler, late) {
 			var supreme = this;
-			return function(...args) { 
+			return function(...args) {
 				if (supreme.actual)
 				return handler(...args);
 				else
@@ -482,8 +482,8 @@ export default function promiseFactory({
 			}
 			supremeSubject = new SupremeSubject();
 			supremeSubject.promise = new CustomizedPromise(function(resolve, reject) {
-				
-				var returnedDestroyer = resolver.apply(this, 
+
+				var returnedDestroyer = resolver.apply(this,
 					[resolve, reject, supremeSubject.backtrack.bind(supremeSubject), supremeSubject.async.bind(supremeSubject)]
 					.concat(args)
 				);
@@ -509,7 +509,7 @@ export default function promiseFactory({
 		CustomizedPromise.supreme = methodSupreme;
 		CustomizedPromise.resolve = directResolve;
 		CustomizedPromise.reject = directReject;
-		
+
 	} else {
 		CustomizedPromise = class CustomizedPromise extends idlePromise {
 

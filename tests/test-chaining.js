@@ -6,7 +6,7 @@ var ClasicPromise = promiseFactory({
     });
 tap.test('Classc chaining', function(t) {
     t.plan(1);
-    
+
 
     var tester = new ClasicPromise(function(resolve, reject) {
         resolve(1);
@@ -45,4 +45,32 @@ tap.test('Return promise', function(t) {
         .catch(function(e) {
             t.ok(e.message=='done2', 'Reject message must be \'done2\'');
         })
+});
+
+
+tap.test('Subscribe to catch', function(t) {
+  t.plan(1);
+  ClasicPromise.resolve(2).then(function(r) {
+    return r+1;
+  })
+  .catch(function(e) {
+    throw e;
+  })
+  .then(function(r) {
+    t.ok(r==3, 'r must be 3');
+  });
+});
+
+tap.test('Catch', function(t) {
+  t.plan(1);
+  ClasicPromise.resolve(2).then(function(r) {
+    throw new Error('bailout');
+  })
+  .catch(function(e) {
+    t.ok(e instanceof Error, 'e must be an Error');
+    return 777;
+  })
+  .then(function(r) {
+    t.ok(r===777, 'catch must returns a value 777');
+  });
 });

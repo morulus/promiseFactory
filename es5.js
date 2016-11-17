@@ -53,7 +53,7 @@ module.exports =
 
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
 	exports.default = promiseFactory;
 
@@ -125,20 +125,20 @@ module.exports =
 	function promiseFactory(_ref) {
 		var _Object$create;
 
-		var _ref$immediate = _ref.immediate;
-		var immediate = _ref$immediate === undefined ? false : _ref$immediate;
-		var _ref$perpetual = _ref.perpetual;
-		var perpetual = _ref$perpetual === undefined ? false : _ref$perpetual;
-		var _ref$autorun = _ref.autorun;
-		var autorun = _ref$autorun === undefined ? true : _ref$autorun;
-		var _ref$external = _ref.external;
-		var external = _ref$external === undefined ? false : _ref$external;
-		var _ref$chaining = _ref.chaining;
-		var chaining = _ref$chaining === undefined ? true : _ref$chaining;
-		var _ref$searchOutOfUse = _ref.searchOutOfUse;
-		var searchOutOfUse = _ref$searchOutOfUse === undefined ? false : _ref$searchOutOfUse;
-		var _ref$methodsNames = _ref.methodsNames;
-		var methodsNames = _ref$methodsNames === undefined ? {} : _ref$methodsNames;
+		var _ref$immediate = _ref.immediate,
+		    immediate = _ref$immediate === undefined ? false : _ref$immediate,
+		    _ref$perpetual = _ref.perpetual,
+		    perpetual = _ref$perpetual === undefined ? false : _ref$perpetual,
+		    _ref$autorun = _ref.autorun,
+		    autorun = _ref$autorun === undefined ? true : _ref$autorun,
+		    _ref$external = _ref.external,
+		    external = _ref$external === undefined ? false : _ref$external,
+		    _ref$chaining = _ref.chaining,
+		    chaining = _ref$chaining === undefined ? true : _ref$chaining,
+		    _ref$searchOutOfUse = _ref.searchOutOfUse,
+		    searchOutOfUse = _ref$searchOutOfUse === undefined ? false : _ref$searchOutOfUse,
+		    _ref$methodsNames = _ref.methodsNames,
+		    methodsNames = _ref$methodsNames === undefined ? {} : _ref$methodsNames;
 
 
 		var $_customizedMethodsNames = {};
@@ -350,7 +350,7 @@ module.exports =
 			}
 		}), _defineProperty(_Object$create, $doJob, {
 			value: function value(jobs) {
-				var rejection = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+				var rejection = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
 
 				/*
 	   Rejection can not be hidden from developer
@@ -500,10 +500,12 @@ module.exports =
 			value: function value() {
 				var _this2 = this;
 
-				var onResolved = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
-				var onRejected = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+				var onResolved = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+				var onRejected = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
 
-
+				if (!onResolved) onResolved = function onResolved(r) {
+					return r;
+				};
 				var promise = new CustomizedPromise(function (resolve, reject) {
 
 					if ("function" === typeof onResolved) {
@@ -729,7 +731,7 @@ module.exports =
 
 					_classCallCheck(this, CustomizedPromise);
 
-					var _this3 = _possibleConstructorReturn(this, Object.getPrototypeOf(CustomizedPromise).call(this));
+					var _this3 = _possibleConstructorReturn(this, (CustomizedPromise.__proto__ || Object.getPrototypeOf(CustomizedPromise)).call(this));
 
 					return _ret3 = methods.constructor.apply(_this3, Array.from(arguments)), _possibleConstructorReturn(_this3, _ret3);
 				}
@@ -772,7 +774,7 @@ module.exports =
 				}, {
 					key: $doJob,
 					value: function value(jobs) {
-						var rejection = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+						var rejection = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
 
 						return methods[$doJob].apply(this, Array.from(arguments));
 					}
@@ -831,8 +833,8 @@ module.exports =
 				}, {
 					key: $_customizedMethodsNames.then,
 					value: function value() {
-						var onResolved = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
-						var onRejected = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+						var onResolved = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+						var onRejected = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
 
 						return methods[$_customizedMethodsNames.then].apply(this, Array.from(arguments));
 					}
